@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@theme inline {
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-space-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+}
+
+:root { color-scheme: dark; --background: #080a0f; --foreground: #f4f4f5; --card: #10131a; --card-foreground: #f4f4f5; --primary: #a5f3fc; --primary-foreground: #09090b; --muted: #181b23; --muted-foreground: #a1a1aa; --border: rgba(255,255,255,.1); --input: rgba(255,255,255,.12); --ring: #a5f3fc; --destructive: #f87171; }
+
+* { @apply border-border outline-ring/30; }
+html { scroll-behavior: smooth; }
+body { @apply bg-background text-foreground font-sans; background-image: radial-gradient(circle at 85% 0%, rgba(34,211,238,.07), transparent 28rem), radial-gradient(circle at 0% 100%, rgba(250,204,21,.035), transparent 24rem); }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, input:focus-visible { outline: 2px solid #a5f3fc; outline-offset: 2px; }

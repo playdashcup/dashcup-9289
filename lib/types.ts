@@ -1,0 +1,106 @@
+export interface StartGameResponse {
+  runId: string
+  runToken: string
+  seed: string | number
+  expiresAt: string
+}
+
+export interface GameInputEvidence {
+  type: string
+  at: number
+  x?: number
+  y?: number
+  key?: string
+}
+
+export interface EndGameResponse {
+  success: boolean
+  verifiedScore: number
+  trophiesEarned: number
+  totalTrophies: number
+  runId: string
+}
+
+export interface Quest {
+  id: string
+  title: string
+  description?: string
+  period?: 'daily' | 'weekly' | string
+  progress: number
+  target: number
+  reward: number
+  completed: boolean
+  claimed: boolean
+}
+
+export interface MeResponse {
+  user?: { id?: string; displayName?: string; avatarUrl?: string }
+  trophies: number
+  personalBest?: number
+  referralCode?: string
+  rewardEmail?: string | null
+  giftChoice?: string | null
+  streak?: number
+}
+
+export interface EligibilityResponse {
+  eligible: boolean
+  rank: number | null
+  cycle?: string
+  rewardEmail?: string | null
+  giftChoice?: string | null
+  redeemed?: boolean
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  name: string
+  trophies: number
+}
+
+export interface LeaderboardResponse {
+  active?: LeaderboardEntry[]
+  closed?: LeaderboardEntry[]
+  cycle?: string
+}
+
+export interface ClaimQuestResponse {
+  success: boolean
+  trophiesAwarded: number
+  totalTrophies: number
+}
+
+export interface ReferralLinkResponse {
+  referralUrl: string
+  referralCode?: string
+}
+
+export interface BootstrapResponse {
+  success?: boolean
+}
+
+export interface EndGamePayload {
+  runId: string
+  runToken: string
+  clientScore: number
+  durationMs: number
+  inputs: GameInputEvidence[]
+}
+
+export interface ApiErrorShape {
+  error?: string
+  code?: string
+  message?: string
+}
+
+export class ApiError extends Error {
+  status: number
+  code?: string
+
+  constructor(message: string, status: number, code?: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+  }
+}
