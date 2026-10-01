@@ -63,9 +63,6 @@ export function Dashboard() {
             <div className="flex items-center gap-1.5 rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2.5 py-1.5 font-mono text-xs font-bold text-yellow-200 sm:gap-2 sm:px-3 sm:py-2 sm:text-sm">
               <Trophy className="size-4" aria-hidden="true" /> {trophyLabel}
             </div>
-            <button className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition hover:border-cyan-300/50 hover:text-cyan-200" aria-label="Open profile">
-              <UserRound className="size-4" aria-hidden="true" />
-            </button>
           </div>
         </div>
       </header>
