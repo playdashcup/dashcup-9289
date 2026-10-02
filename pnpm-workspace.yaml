@@ -1,5 +1,3 @@
-pmOnFail: ignore
-
-minimumReleaseAgeExclude:
-  - '@next/*'
-  - next
+packages: []
+allowBuilds:
+  unrs-resolver: true

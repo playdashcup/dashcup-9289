@@ -1,0 +1,81 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { biweeklyId, dayId, QUESTS, validateEvidence, weekId } from '../src/domain.ts'
+import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '../src/security/reward-code.ts'
+import { rewardEmailTemplate } from '../src/email/reward-template.ts'
+import { sendRewardEmail } from '../src/email/resend.ts'
+
+test('publishes exactly four daily and five weekly quests with the guide values', () => {
+  assert.equal(QUESTS.filter((quest) => quest.period === 'daily').length, 4)
+  assert.equal(QUESTS.filter((quest) => quest.period === 'weekly').length, 5)
+  assert.deepEqual(Object.fromEntries(QUESTS.map(({ type, target, reward }) => [type, [target, reward]])), {
+    play_1: [1, 100], play_5: [5, 500], new_pb: [1, 1_000], sponsor_app: [1, 20_000],
+    play_20: [20, 2_500], pb_3_days: [3, 5_000], ref_2: [2, 3_000], ppi_3: [3, 30_000], cpa_1: [1, 80_000],
+  })
+})
+
+test('derives daily and weekly cycles in UTC', () => {
+  const instant = new Date('2026-10-01T00:30:00+05:30')
+  assert.equal(dayId(instant), '2026-09-30')
+  assert.equal(weekId(instant), '2026-09-28')
+})
+
+test('derives 14-day cycles from the fixed guide anchor', () => {
+  assert.equal(biweeklyId(new Date('2026-01-05T00:00:00Z')), '2026-01-05')
+  assert.equal(biweeklyId(new Date('2026-01-18T23:59:59Z')), '2026-01-05')
+  assert.equal(biweeklyId(new Date('2026-01-19T00:00:00Z')), '2026-01-19')
+})
+
+test('rejects excessive evidence, duration, score velocity, and malformed moves', () => {
+  const valid = { clientScore: 4, durationMs: 10_000, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 100 }] }
+  assert.equal(validateEvidence(valid), null)
+  assert.equal(validateEvidence({ ...valid, durationMs: 180_001 }), 'INVALID_DURATION')
+  assert.equal(validateEvidence({ ...valid, inputs: Array(2_001).fill(valid.inputs[0]) }), 'INVALID_INPUT_COUNT')
+  assert.equal(validateEvidence({ ...valid, clientScore: 2, durationMs: 10 }), 'SCORE_VELOCITY')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'HACK', at: 0 }] }), 'INVALID_INPUT')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 20 }, { type: 'move', key: 'SWIPE_DOWN', at: 19 }] }), 'INVALID_INPUT_SEQUENCE')
+})
+
+test('encrypts reward codes with AES-256-GCM, authenticates category, and fingerprints duplicates', async () => {
+  const key = '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff'
+  const encrypted = await encryptRewardCode('  SAMPLE-CODE-123  ', 'robux', key)
+  assert.equal(encrypted.iv.byteLength, 12)
+  assert.equal(encrypted.authenticationTag.byteLength, 16)
+  assert.equal(await decryptRewardCode(encrypted, 'robux', key), 'SAMPLE-CODE-123')
+  assert.equal(await rewardCodeFingerprintHex('sample-code-123'), [...encrypted.fingerprint].map((byte) => byte.toString(16).padStart(2, '0')).join(''))
+  await assert.rejects(() => decryptRewardCode(encrypted, 'vbucks', key))
+  const corrupted = { ...encrypted, authenticationTag: encrypted.authenticationTag.slice() }
+  corrupted.authenticationTag[0] ^= 1
+  await assert.rejects(() => decryptRewardCode(corrupted, 'robux', key))
+})
+
+test('reward email template escapes HTML and includes a plain-text alternative', () => {
+  const template = rewardEmailTemplate('<img src=x onerror=alert(1)>', 'robux')
+  assert.match(template.html, /&lt;img/)
+  assert.match(template.text, /<img/)
+  assert.equal(template.subject, 'Your ChickenDash robux reward')
+})
+
+test('Resend send uses the redemption idempotency key and classifies accepted delivery', async () => {
+  const originalFetch = globalThis.fetch
+  let observedKey = ''
+  globalThis.fetch = async (_input, init) => {
+    observedKey = new Headers(init?.headers).get('Idempotency-Key') ?? ''
+    return new Response(JSON.stringify({ id: 'email-test-id' }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+  try {
+    const outcome = await sendRewardEmail({ apiKey: 'test-secret', from: 'rewards@example.test', to: 'user@example.test', subject: 'reward', html: '<p>x</p>', text: 'x', idempotencyKey: 'redemption-123' })
+    assert.equal(observedKey, 'redemption-123')
+    assert.deepEqual(outcome, { state: 'accepted', messageId: 'email-test-id' })
+  } finally { globalThis.fetch = originalFetch }
+})
+
+test('Resend classifies provider rejection and network ambiguity without exposing provider response bodies', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () => new Response('private provider detail', { status: 422 })
+    assert.deepEqual(await sendRewardEmail({ apiKey: 'secret', from: 'a@b.test', to: 'c@d.test', subject: 's', html: 'h', text: 't', idempotencyKey: 'id' }), { state: 'rejected', reason: 'resend_http_422' })
+    globalThis.fetch = async () => { throw new Error('socket reset') }
+    assert.deepEqual(await sendRewardEmail({ apiKey: 'secret', from: 'a@b.test', to: 'c@d.test', subject: 's', html: 'h', text: 't', idempotencyKey: 'id' }), { state: 'provider_unknown', reason: 'network_or_provider_ambiguity' })
+  } finally { globalThis.fetch = originalFetch }
+})

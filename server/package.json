@@ -1,0 +1,20 @@
+{
+  "name": "@dashcup/api-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "wrangler types && tsc --noEmit",
+    "dry-run": "wrangler deploy --dry-run --env=\"\""
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "hono": "^4.9.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "wrangler": "^4.38.0"
+  }
+}

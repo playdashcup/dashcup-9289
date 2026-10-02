@@ -12,4 +12,11 @@ __v0_jsx-dev-runtime.ts
 # Common ignores
 node_modules
 .next/
+out/
+next-env.d.ts
+games/dash-cross-source/
+server/node_modules/
+server/.wrangler/
+server/.dev.vars
+server/worker-configuration.d.ts
 .DS_Store

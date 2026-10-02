@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '@/lib/api'
-import type { EligibilityResponse, LeaderboardResponse, MeResponse, Quest } from '@/lib/types'
+import type { EligibilityResponse, LeaderboardResponse, MeResponse, Quest, ReferralLinkResponse } from '@/lib/types'
 import { GameBridge } from '@/components/Game/GameBridge'
 import { QuestBoard } from '@/components/Quests/QuestBoard'
 import { Leaderboard } from '@/components/Quests/Leaderboard'
@@ -10,7 +10,7 @@ import { RewardPanel } from '@/components/Rewards/RewardPanel'
 import { ReferralPanel } from '@/components/Referrals/ReferralPanel'
 import { ServiceWorker } from '@/components/ServiceWorker'
 import { AntiCheatTelemetry } from '@/components/Security/AntiCheatTelemetry'
-import { Trophy, Gamepad2, Target, Crown, Gift, UserRound, Copy, ArrowUpRight, Zap } from 'lucide-react'
+import { Trophy, Gamepad2, Target, Crown, Gift, Zap } from 'lucide-react'
 
 const sections = [
   { id: 'arcade', label: 'Arcade', icon: Gamepad2 },
@@ -27,6 +27,7 @@ export function Dashboard() {
   const [quests, setQuests] = useState<Quest[] | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null)
   const [eligibility, setEligibility] = useState<EligibilityResponse | null>(null)
+  const [referral, setReferral] = useState<ReferralLinkResponse | null>(null)
   const [booting, setBooting] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,20 +35,39 @@ export function Dashboard() {
   const refreshQuests = useCallback(async () => setQuests(await api.getQuests()), [])
   const loadData = useCallback(async () => {
     try {
-      setError(null)
       const referralCode = new URLSearchParams(window.location.search).get('ref') ?? undefined
-      await api.bootstrap(referralCode)
+      const bootstrap = await api.bootstrap(referralCode)
       window.history.replaceState({}, '', window.location.pathname)
-      const [profile, questData, ranks, reward] = await Promise.all([api.getMe(), api.getQuests(), api.getLeaderboard(), api.getEligibility()])
-      setMe(profile); setQuests(questData); setLeaderboard(ranks); setEligibility(reward)
+      setMe(bootstrap.me)
+      setQuests(bootstrap.quests)
+      setLeaderboard(bootstrap.leaderboard)
+      setEligibility(bootstrap.eligibility)
+      setReferral(bootstrap.referral)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to connect to DASHCUP')
     } finally { setBooting(false) }
   }, [])
 
-  useEffect(() => { void loadData() }, [loadData])
+  useEffect(() => {
+    let current = true
+    const referralCode = new URLSearchParams(window.location.search).get('ref') ?? undefined
+    api.bootstrap(referralCode).then((bootstrap) => {
+      if (!current) return
+      window.history.replaceState({}, '', window.location.pathname)
+      setMe(bootstrap.me)
+      setQuests(bootstrap.quests)
+      setLeaderboard(bootstrap.leaderboard)
+      setEligibility(bootstrap.eligibility)
+      setReferral(bootstrap.referral)
+    }).catch((cause) => {
+      if (current) setError(cause instanceof Error ? cause.message : 'Unable to connect to DASHCUP')
+    }).finally(() => {
+      if (current) setBooting(false)
+    })
+    return () => { current = false }
+  }, [])
 
-  const trophyLabel = useMemo(() => me?.trophies == null ? '—' : me.trophies.toLocaleString(), [me?.trophies])
+  const trophyLabel = me?.trophies == null ? '—' : me.trophies.toLocaleString()
 
   return (
     <div className="min-h-screen bg-[#080a0f] text-zinc-100 selection:bg-cyan-300 selection:text-zinc-950">
@@ -72,7 +92,7 @@ export function Dashboard() {
           <div>
             <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[.2em] text-cyan-300">DASHCUP / MEMBER HUB</p>
             <h1 className="max-w-[18rem] text-2xl font-black leading-tight tracking-tight text-white sm:max-w-none sm:text-4xl">Play sharp. Stack trophies.</h1>
-            <p className="mt-2 max-w-xl text-sm text-zinc-400">A fast lane for verified runs, daily quests, and rewards worth chasing.</p>
+            <p className="mt-2 max-w-xl text-sm text-zinc-400">A fast lane for arcade runs, daily quests, and rewards worth chasing.</p>
           </div>
           <div className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 md:flex">
             <Zap className="size-4 text-cyan-300" aria-hidden="true" />
@@ -87,7 +107,7 @@ export function Dashboard() {
 
         {error && <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200"><span>{error}</span><button onClick={() => { setBooting(true); void loadData() }} className="font-bold underline">Try again</button></div>}
         {booting ? <div className="grid min-h-[440px] place-items-center rounded-3xl border border-white/10 bg-white/[0.025]"><div className="text-center"><div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-cyan-300/20 border-t-cyan-300" /><p className="font-mono text-xs uppercase tracking-widest text-zinc-500">Syncing DASHCUP</p></div></div> : <>
-          {active === 'arcade' && <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.35fr_.65fr]"><GameBridge onComplete={() => { void refreshMe(); void refreshQuests() }} /><ReferralPanel /></div>}
+          {active === 'arcade' && <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.35fr_.65fr]"><GameBridge onComplete={() => { void refreshMe(); void refreshQuests() }} /><ReferralPanel referralUrl={referral?.referralUrl ?? null} onViewQuests={() => setActive('quests')} /></div>}
           {active === 'quests' && <QuestBoard quests={quests} onRefresh={refreshQuests} onTrophiesChanged={refreshMe} />}
           {active === 'leaderboard' && <Leaderboard data={leaderboard} onRetry={async () => setLeaderboard(await api.getLeaderboard())} />}
           {active === 'rewards' && <RewardPanel eligibility={eligibility} me={me} onRefresh={async () => { await refreshMe(); setEligibility(await api.getEligibility()) }} />}

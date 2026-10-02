@@ -1,0 +1,6 @@
+packages: []
+allowBuilds:
+  esbuild: false
+  workerd: false
+overrides:
+  '@cloudflare/workers-types': 5.20260926.1

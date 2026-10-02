@@ -14,11 +14,14 @@ export interface GameInputEvidence {
 }
 
 export interface EndGameResponse {
-  success: boolean
-  verifiedScore: number
+  accepted: boolean
+  verification: 'pending' | 'verified'
+  awarded: boolean
+  score?: number
   trophiesEarned: number
-  totalTrophies: number
-  runId: string
+  totalTrophies?: number
+  runId?: string
+  code?: string
 }
 
 export interface Quest {
@@ -76,7 +79,13 @@ export interface ReferralLinkResponse {
 }
 
 export interface BootstrapResponse {
-  success?: boolean
+  success: boolean
+  csrfToken: string
+  me: MeResponse
+  quests: Quest[]
+  leaderboard: LeaderboardResponse
+  eligibility: EligibilityResponse
+  referral: ReferralLinkResponse
 }
 
 export interface EndGamePayload {

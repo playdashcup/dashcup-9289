@@ -8,7 +8,7 @@ const spaceMono = Space_Mono({ subsets: ['latin'], weight: ['400', '700'], varia
 
 export const metadata: Metadata = {
   title: 'DASHCUP — Play. Stack. Repeat.',
-  description: 'DASHCUP is a verified arcade for trophies, quests, rankings, and rewards.',
+  description: 'DASHCUP is an arcade hub for trophies, quests, rankings, and rewards.',
   manifest: '/manifest.webmanifest',
   icons: { icon: '/icon.svg', apple: '/apple-icon.png' },
 }
