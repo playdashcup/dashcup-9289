@@ -57,3 +57,11 @@ Updated: 2026-10-02
 ## Resend account check (2026-10-02)
 
 - The connected Resend account currently lists `dashcup.com` with status `not_started` and sending capability enabled; it does not list `mail.dashcup.com`. Domain verification is therefore not confirmed. Production delivery remains disabled; no test email was sent.
+
+## Anti-cheat hardening — staged, not yet production (2026-10-02)
+
+- Structural and plausibility controls now include strict evidence keys/directions, automatic initial forward move, timestamp monotonicity, at least 50 ms separation, duration bounds, per-second density and score-velocity ceilings, score bounded by forward inputs, and a 10-second server-start-time comparison using Neon time.
+- Accepted evidence is hashed across score/duration/inputs; repeated exact suspicious payloads are flagged, and run token reuse/tampering, honeypot, bad structure and duration mismatch are written to `suspicious_runs`. Errors log only a whitelisted SQLSTATE code, not evidence values or secrets.
+- Staging smoke passed accepted plausible run, speed rejection, server duration mismatch, duplicate token, session/CSRF and referral progression. The submit response explicitly says `plausibility_checked` and pays zero immediate game trophies. Exact game-score reproduction is not claimed; replay remains disabled.
+- A global-per-IP Cloudflare rate key prevents path-based key rotation. 429 was observed with a temporary five-per-minute staging configuration; restored staging config is 60/min. This is an eventually consistent regional control, not a global accounting guarantee.
+- The above code is staged only until production deployment. Resend, ad payouts, and provider conversions remain disabled.

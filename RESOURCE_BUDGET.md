@@ -43,3 +43,10 @@ Updated: 2026-10-02
 - Expo Worker asset bundle approx. 2.16 MB JavaScript; Wrangler uploaded 307.84 KiB source package (80.36 KiB gzip) on latest deploy. Existing Pages frontend was not rebuilt.
 - Latest Worker tests 11/11, TypeScript check, root lint, and Wrangler production dry-run passed. Canonical Bun audit remains 8 advisories (7 high, 1 moderate). Live rate-limit threshold and browser E2E remain unverified.
 - Resend delivery, reward-ad payouts and external conversion integrations remain disabled, so no provider delivery/usage is currently incurred by these flows.
+
+## Staging anti-cheat validation (2026-10-02)
+
+- No new Cloudflare resources or Neon objects/migrations were added for the anti-cheat update.
+- Staging Worker is version `49ccb780-68e1-49db-b1bf-0bf43ff832b9`, with its original rate-limit binding restored to 60 per 60 seconds after a temporary staging-only five/minute exercise that demonstrated HTTP 429.
+- Production config remains 60/min; existing production Worker version `7e3b55c8-c35c-44e9-a204-470e5d91841a` needs the staged code update. Production Neon schema is unchanged.
+- Validation: 11/11 worker tests, Worker typecheck, root lint, production dry-run. Staging smoke confirmed session/CSRF, anomalous score and duration rejection, accepted plausibility-only run, duplicate-run rejection, referral/quest progression, and repeated-suspicious-run logging. Browser E2E remains unavailable.

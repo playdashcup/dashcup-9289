@@ -39,7 +39,7 @@ test('caps streamed request bodies before JSON handlers receive them', async () 
 
 test('returns a 429 response when the Cloudflare rate-limit binding rejects a request', async () => {
   const observedKeys = []
-  const key = rateLimitKey('198.51.100.7', '/api/health')
+  const key = rateLimitKey('198.51.100.7')
   const app = new Hono()
   app.use('/api/*', async (c, next) => {
     if (await isRateLimited(c.env.API_RATE_LIMIT, key)) {
@@ -62,7 +62,8 @@ test('returns a 429 response when the Cloudflare rate-limit binding rejects a re
 
   assert.equal(response.status, 429)
   assert.deepEqual(await response.json(), { error: 'Too many requests', code: 'RATE_LIMITED' })
-  assert.deepEqual(observedKeys, ['198.51.100.7:/api/health'])
+  assert.deepEqual(observedKeys, ['198.51.100.7'])
+  assert.equal(rateLimitKey('198.51.100.7'), rateLimitKey('198.51.100.7'))
 })
 
 test('publishes exactly four daily and five weekly quests with the guide values', () => {
@@ -90,15 +91,20 @@ test('bounds evidence and rejects scores unsupported by the recorded forward inp
   const valid = { clientScore: 4, durationMs: 10_000, inputs: [100, 200, 300, 400].map((at) => ({ type: 'move', key: 'SWIPE_UP', at })) }
   assert.equal(validateEvidence(valid), null)
   assert.equal(validateEvidence({ ...valid, durationMs: 180_001 }), 'INVALID_DURATION')
+  assert.equal(validateEvidence({ ...valid, durationMs: 199 }), 'INVALID_DURATION')
   assert.equal(validateEvidence({ ...valid, inputs: Array(2_001).fill(valid.inputs[0]) }), 'INVALID_INPUT_COUNT')
   assert.equal(validateEvidence({ ...valid, clientScore: 5 }), 'SCORE_EXCEEDS_FORWARD_INPUTS')
+  assert.equal(validateEvidence({ clientScore: 130, durationMs: 10_000, inputs: Array.from({ length: 130 }, (_, index) => ({ type: 'move', key: 'SWIPE_UP', at: index * 75 })) }), 'IMPOSSIBLE_SCORE_VELOCITY')
   assert.equal(validateEvidence({ ...valid, clientScore: Number.MAX_SAFE_INTEGER + 1 }), 'INVALID_SCORE')
   assert.equal(validateEvidence({ ...valid, inputs: [] }), 'NO_FORWARD_INPUT')
-  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_LEFT', at: 100 }] }), 'NO_FORWARD_INPUT')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_LEFT', at: 100 }] }), 'INVALID_INITIAL_MOVE')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'HACK', at: 0 }] }), 'INVALID_INPUT')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: -1 }] }), 'INVALID_INPUT_SEQUENCE')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_LEFT', at: 1 }] }), 'INVALID_INITIAL_MOVE')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 5_001 }] }), 'INVALID_INITIAL_MOVE')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 10_001 }] }), 'INVALID_INPUT_SEQUENCE')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 20 }, { type: 'move', key: 'SWIPE_DOWN', at: 69 }] }), 'INVALID_INPUT_SEQUENCE')
+  assert.equal(validateEvidence({ ...valid, inputs: Array.from({ length: 17 }, (_, index) => ({ type: 'move', key: 'SWIPE_UP', at: index * 55 })) }), 'IMPOSSIBLE_INPUT_DENSITY')
 })
 
 test('encrypts reward codes with AES-256-GCM, authenticates category, and fingerprints duplicates', async () => {

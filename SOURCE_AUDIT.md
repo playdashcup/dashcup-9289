@@ -55,3 +55,10 @@ Audit date: 2026-10-02
 - Production Worker `dashcup-9289`, version `7e3b55c8-c35c-44e9-a204-470e5d91841a`, runs on `api.dashcup.com` and serves game assets on `game.dashcup.com`. Production Neon `bitter-mode-91626896` / `br-purple-river-b4v27of0`: both migrations applied; 17 tables. Existing Pages at apex/www was not rebuilt.
 - API/game custom domains resolve via Cloudflare authoritative DNS and 1.1.1.1; the local default resolver still has NXDOMAIN. Existing site and PWA resources return 200.
 - Staging integration and validation are recorded in BUILD_REPORT.md. Browser E2E is blocked by Windows CUA startup ACL error. Reward/ad/provider flows and deterministic replay remain disabled/unverified. The canonical Bun audit has 8 known advisories (7 high, 1 moderate).
+
+## Practical anti-cheat implementation update (2026-10-02)
+
+- Existing Expo game and gameplay engine were preserved; no deterministic score simulator was introduced. Existing run evidence capture remains in GameBridge/Expo integration.
+- Server now checks evidence shape, initial input transition, move ordering/frequency/density, duration, score/input relationship, score velocity, and server-issued run start time. It hashes submitted evidence and flags repeated suspicious payloads while preserving one-use hashed run tokens, expiry, CSRF and session checks.
+- Quest/PB/referral CTE flow remains atomic after plausibility acceptance. Game completion returns `plausibility_checked`; it does not directly award game trophies. Staging referral qualification and progress were exercised.
+- Staging anti-cheat Worker version `49ccb780-68e1-49db-b1bf-0bf43ff832b9` is live with 60/min restored. Production still requires deployment of this update. Pages remains untouched; source UI edits are not yet published.

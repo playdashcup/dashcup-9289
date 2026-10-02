@@ -31,6 +31,7 @@ type RewardRedemption = { id: string; status: string; delivery_status: string; r
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 const SESSION_COOKIE = 'dashcup_session'
 const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
+const RUN_CLOCK_TOLERANCE_MS = 10_000
 
 function sqlFor(env: Env) {
   if (!env.DATABASE_URL) throw new Error('DATABASE_UNAVAILABLE')
@@ -89,7 +90,7 @@ app.use('/api/*', async (c, next) => {
     return c.body(null, 204)
   }
   const address = c.req.header('CF-Connecting-IP') ?? 'unknown'
-  if (await isRateLimited(c.env.API_RATE_LIMIT, rateLimitKey(address, new URL(c.req.url).pathname))) {
+  if (await isRateLimited(c.env.API_RATE_LIMIT, rateLimitKey(address))) {
     return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
   }
   await next()
@@ -228,6 +229,18 @@ async function requireCsrf(c: AppContext) {
   return constantTimeStringEqual(await sha256(supplied), c.get('csrfHash'))
 }
 
+async function logSuspiciousRun(c: AppContext, runId: string | null, reason: string, evidenceHash: string | null) {
+  const sql = sqlFor(c.env)
+  let reasons = [reason]
+  if (evidenceHash) {
+    const [prior] = await sql`SELECT count(*)::integer AS count FROM suspicious_runs
+      WHERE user_id=${c.get('userId')} AND evidence_hash=decode(${evidenceHash},'hex') AND created_at > now()-interval '24 hours'`
+    if (Number(prior?.count ?? 0) >= 2) reasons.push('REPEATED_SUSPICIOUS_EVIDENCE')
+  }
+  await sql`INSERT INTO suspicious_runs(run_id,user_id,reason_codes,evidence_hash)
+    VALUES(${runId},${c.get('userId')},${reasons},CASE WHEN ${evidenceHash}::text IS NULL THEN NULL ELSE decode(${evidenceHash},'hex') END)`
+}
+
 app.get('/api/me', async (c) => {
   if (!await requireSession(c)) return c.json({ error: 'Sign in required', code: 'UNAUTHENTICATED' }, 401)
   const [user] = await sqlFor(c.env)`SELECT id,display_name,trophies,personal_best,referral_code,reward_email,gift_choice FROM users WHERE id=${c.get('userId')}`
@@ -264,26 +277,37 @@ app.post('/api/game/end', async (c) => {
   let offset = 0
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
   let body: { runId?: string; runToken?: string; clientScore?: number; durationMs?: number; inputs?: unknown[]; website?: string }
-  try { body = JSON.parse(new TextDecoder().decode(bytes)) } catch { return c.json({ error: 'Invalid JSON body', code: 'INVALID_BODY' }, 400) }
-  if (typeof body.website === 'string' && body.website.trim()) {
-    await sqlFor(c.env)`INSERT INTO suspicious_runs(user_id,reason_codes) VALUES(${c.get('userId')},ARRAY['HONEYPOT_FILLED'])`
+  try { body = JSON.parse(new TextDecoder().decode(bytes)) } catch {
+    await logSuspiciousRun(c, null, 'INVALID_JSON_BODY', null)
+    return c.json({ error: 'Invalid JSON body', code: 'INVALID_BODY' }, 400)
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    await logSuspiciousRun(c, null, 'INVALID_EVIDENCE_SHAPE', null)
+    return c.json({ error: 'Run evidence must be an object', code: 'INVALID_BODY' }, 400)
+  }
+  const safeRunId = typeof body.runId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.runId) ? body.runId : null
+  const canonical = JSON.stringify({ clientScore: body.clientScore, durationMs: body.durationMs, inputs: body.inputs })
+  const evidenceHash = await sha256(canonical)
+  if (Object.keys(body).some((key) => !['runId', 'runToken', 'clientScore', 'durationMs', 'inputs', 'website'].includes(key))) {
+    await logSuspiciousRun(c, safeRunId, 'INVALID_EVIDENCE_SHAPE', evidenceHash)
+    return c.json({ error: 'Run evidence has unexpected fields', code: 'INVALID_EVIDENCE' }, 422)
+  }
+  if (body.website !== undefined && body.website !== null && body.website !== '') {
+    await logSuspiciousRun(c, safeRunId, 'HONEYPOT_FILLED', evidenceHash)
     return c.json({ error: 'Request rejected', code: 'REQUEST_REJECTED' }, 400)
   }
   const evidenceError = validateEvidence(body)
   if (evidenceError || !body.runId || !body.runToken) {
-    if (evidenceError) await sqlFor(c.env)`INSERT INTO suspicious_runs(user_id,reason_codes) VALUES(${c.get('userId')},ARRAY[${evidenceError}])`
+    if (evidenceError) await logSuspiciousRun(c, safeRunId, evidenceError, evidenceHash)
     return c.json({ error: 'Run evidence failed structural checks', code: evidenceError ?? 'INVALID_EVIDENCE' }, 422)
   }
   if (typeof body.runId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.runId)
       || typeof body.runToken !== 'string' || !/^[0-9a-f]{64}$/i.test(body.runToken)) {
-    await sqlFor(c.env)`INSERT INTO suspicious_runs(user_id,reason_codes) VALUES(${c.get('userId')},ARRAY['INVALID_RUN_CREDENTIAL_FORMAT'])`
+    await logSuspiciousRun(c, safeRunId, 'INVALID_RUN_CREDENTIAL_FORMAT', evidenceHash)
     return c.json({ error: 'Run credential format is invalid', code: 'INVALID_EVIDENCE' }, 422)
   }
   const tokenHash = await sha256(body.runToken)
-  const canonical = JSON.stringify(body.inputs)
-  const evidenceHash = await sha256(canonical)
   const sql = sqlFor(c.env)
-  const safeRunId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.runId) ? body.runId : null
   // The only accepted game events are a one-time, unexpired server session and
   // bounded evidence whose score cannot exceed the game's recorded forward inputs.
   // This is practical plausibility checking, not deterministic replay.
@@ -293,7 +317,10 @@ app.post('/api/game/end', async (c) => {
   const [recorded] = await sql`WITH consumed AS (
       UPDATE game_sessions SET used_at=now(),suspicion_flags='{}'
       WHERE run_id=${body.runId} AND user_id=${c.get('userId')} AND run_token_hash=${tokenHash}
-        AND expires_at>now() AND used_at IS NULL RETURNING run_id,user_id
+        AND expires_at>now() AND used_at IS NULL
+        AND extract(epoch FROM (now()-started_at))*1_000 >= ${body.durationMs}::double precision-${RUN_CLOCK_TOLERANCE_MS}::double precision
+        AND extract(epoch FROM (now()-started_at))*1_000 <= ${body.durationMs}::double precision+${RUN_CLOCK_TOLERANCE_MS}::double precision
+      RETURNING run_id,user_id
     ), stored AS (
       INSERT INTO game_runs(run_id,user_id,client_score,verified_score,duration_ms,evidence_hash,result_state)
       SELECT run_id,user_id,${body.clientScore},${body.clientScore},${body.durationMs},decode(${evidenceHash},'hex'),'verified' FROM consumed
@@ -329,14 +356,19 @@ app.post('/api/game/end', async (c) => {
       (SELECT count(*) FROM daily_pb) AS daily_pb_events,(SELECT count(*) FROM pb_week) AS weekly_pb_events,
       (SELECT count(*) FROM referral_quest) AS referral_events FROM stored s`
   if (!recorded) {
-    const [prior] = safeRunId ? await sql`SELECT gs.used_at,gs.expires_at,encode(gr.evidence_hash,'hex') AS evidence_hash
+    const [prior] = safeRunId ? await sql`SELECT gs.used_at,gs.expires_at,
+        (gs.run_token_hash=${tokenHash}) AS token_matches,(gs.expires_at>now()) AS not_expired,
+        (extract(epoch FROM (now()-gs.started_at))*1_000 >= ${body.durationMs}::double precision-${RUN_CLOCK_TOLERANCE_MS}::double precision
+          AND extract(epoch FROM (now()-gs.started_at))*1_000 <= ${body.durationMs}::double precision+${RUN_CLOCK_TOLERANCE_MS}::double precision) AS duration_matches,
+        encode(gr.evidence_hash,'hex') AS evidence_hash
       FROM game_sessions gs LEFT JOIN game_runs gr ON gr.run_id=gs.run_id
       WHERE gs.run_id=${safeRunId} AND gs.user_id=${c.get('userId')} LIMIT 1` : []
     const reasons = prior?.used_at
       ? [prior.evidence_hash && prior.evidence_hash !== evidenceHash ? 'RETRY_EVIDENCE_CHANGED' : 'RUN_REUSED']
-      : prior ? ['RUN_EXPIRED_OR_INVALID_TOKEN'] : ['RUN_TOKEN_INVALID']
-    await sql`INSERT INTO suspicious_runs(run_id,user_id,reason_codes,evidence_hash)
-      VALUES(${safeRunId},${c.get('userId')},${reasons},decode(${evidenceHash},'hex'))`
+      : !prior || !prior.token_matches ? ['RUN_TOKEN_INVALID']
+      : !prior.not_expired ? ['RUN_EXPIRED']
+      : !prior.duration_matches ? ['RUN_DURATION_MISMATCH'] : ['RUN_INVALID_STATE']
+    await logSuspiciousRun(c, safeRunId, reasons[0], evidenceHash)
     return c.json({ error: 'Run token is invalid, expired, or already used', code: 'RUN_INVALID' }, 409)
   }
   return c.json({ accepted: true, verification: 'plausibility_checked', awarded: false, score: recorded.verified_score, trophiesEarned: 0 })
@@ -582,8 +614,10 @@ app.all('*', async (c) => {
 })
 
 app.onError((error, c) => {
-  console.error(JSON.stringify({ request_id: c.req.header('cf-ray') ?? crypto.randomUUID(), route: c.req.path, error: error.message === 'DATABASE_UNAVAILABLE' ? error.message : 'INTERNAL_ERROR' }))
   const unavailable = error.message === 'DATABASE_UNAVAILABLE'
+  const sqlState = (error as Error & { code?: string }).code
+  console.error(JSON.stringify({ request_id: c.req.header('cf-ray') ?? crypto.randomUUID(), route: c.req.path,
+    error: unavailable ? error.message : 'INTERNAL_ERROR', ...(typeof sqlState === 'string' && /^[0-9A-Z]{5}$/.test(sqlState) ? { sql_state: sqlState } : {}) }))
   return c.json({ error: unavailable ? 'Database is not configured' : 'Request failed', code: unavailable ? 'DATABASE_UNAVAILABLE' : 'INTERNAL_ERROR' }, unavailable ? 503 : 500)
 })
 

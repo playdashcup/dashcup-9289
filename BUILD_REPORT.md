@@ -84,3 +84,13 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 ## Resend account check (2026-10-02)
 
 - The connected Resend account currently lists `dashcup.com` with status `not_started` and sending capability enabled; it does not list `mail.dashcup.com`. Domain verification is therefore not confirmed. Production delivery remains disabled; no test email was sent.
+
+## Practical anti-cheat continuation (2026-10-02)
+
+- No deterministic replay simulator was added. `GAME_REPLAY_ENABLED=false` remains in both environments; the documented integrity level is plausibility checks, not exact game-score reconstruction.
+- Strengthened existing evidence validation: JSON object/field validation; first emitted action must be forward within five seconds; minimum/maximum duration; at least 50 ms between ordered events; a rolling input-density ceiling; score no greater than submitted forward moves; and a conservative score-velocity ceiling. Evidence hashes now cover score, duration and inputs. Repeated exact suspicious evidence is flagged after recurrence. Server database start time must match submitted duration within a 10-second network/clock tolerance.
+- Run credential, one-use/expiry, session, CSRF and evidence-hash checks remain. DB accepts are atomic with play/PB/referral quest progression; plausible game submissions report `plausibility_checked` and award zero immediate game trophies.
+- API rate-limit key is now per IP across all API paths rather than path-specific. Temporary staging configuration at 5/min produced HTTP 429; staging was restored to 60/min and redeployed. Cloudflare counters remain location-local and eventually consistent.
+- Staging Worker `dashcup-9289-staging` version `49ccb780-68e1-49db-b1bf-0bf43ff832b9` (60/min restored). Smoke: unauthenticated start 403; bootstrap/session 200; missing-CSRF start 403; impossible score velocity 422; server-duration mismatch 409; plausible run 200; duplicate run 409; referral qualification and quest progression succeeded. Repeated suspicious-evidence reason was observed in staging Neon.
+- Worker tests 11/11, typecheck, root lint and production Wrangler dry-run pass. Browser E2E remains blocked by the previously observed CUA ACL initialization failure.
+- Production Worker still runs version `7e3b55c8-c35c-44e9-a204-470e5d91841a` until the staged anti-cheat update is released. Production migration is already applied. Existing Pages was not rebuilt.

@@ -1,5 +1,8 @@
 export const MAX_INPUTS = 2_000
 export const MAX_RUN_MS = 180_000
+export const MIN_RUN_MS = 200
+export const MAX_SCORE_PER_SECOND = 12
+export const MAX_INPUTS_PER_SECOND = 16
 const CYCLE_ANCHOR = Date.parse('2026-01-05T00:00:00.000Z')
 const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 
@@ -30,15 +33,20 @@ export function biweeklyId(now: Date) {
 export function validateEvidence(value: { clientScore?: unknown; durationMs?: unknown; inputs?: unknown }) {
   const { clientScore, durationMs, inputs } = value
   if (!Number.isSafeInteger(clientScore) || Number(clientScore) < 0) return 'INVALID_SCORE'
-  if (!Number.isInteger(durationMs) || Number(durationMs) < 1 || Number(durationMs) > MAX_RUN_MS) return 'INVALID_DURATION'
+  if (!Number.isInteger(durationMs) || Number(durationMs) < MIN_RUN_MS || Number(durationMs) > MAX_RUN_MS) return 'INVALID_DURATION'
   if (!Array.isArray(inputs) || inputs.length > MAX_INPUTS) return 'INVALID_INPUT_COUNT'
   let previousAt = -1
-  for (const input of inputs) {
+  let densityStart = 0
+  for (let index = 0; index < inputs.length; index += 1) {
+    const input = inputs[index]
     if (!input || typeof input !== 'object' || Array.isArray(input)) return 'INVALID_INPUT'
     const event = input as Record<string, unknown>
     if (Object.keys(event).some((key) => !['type', 'key', 'at'].includes(key))) return 'INVALID_INPUT'
     if (event.type !== 'move' || !['SWIPE_UP', 'SWIPE_DOWN', 'SWIPE_LEFT', 'SWIPE_RIGHT'].includes(String(event.key))) return 'INVALID_INPUT'
     if (!Number.isInteger(event.at) || Number(event.at) < 0 || Number(event.at) > Number(durationMs) || (previousAt >= 0 && Number(event.at) - previousAt < 50)) return 'INVALID_INPUT_SEQUENCE'
+    if (index === 0 && (event.key !== 'SWIPE_UP' || Number(event.at) > 5_000)) return 'INVALID_INITIAL_MOVE'
+    while (densityStart < index && Number(event.at) - Number((inputs[densityStart] as Record<string, unknown>).at) >= 1_000) densityStart += 1
+    if (index - densityStart + 1 > MAX_INPUTS_PER_SECOND) return 'IMPOSSIBLE_INPUT_DENSITY'
     previousAt = Number(event.at)
   }
   // In the actual engine, each SWIPE_UP can advance score by at most one;
@@ -48,5 +56,6 @@ export function validateEvidence(value: { clientScore?: unknown; durationMs?: un
   // no forward input cannot represent a started ChickenDash game.
   if (forwardMoves === 0) return 'NO_FORWARD_INPUT'
   if (Number(clientScore) > forwardMoves) return 'SCORE_EXCEEDS_FORWARD_INPUTS'
+  if (Number(clientScore) * 1_000 > Number(durationMs) * MAX_SCORE_PER_SECOND) return 'IMPOSSIBLE_SCORE_VELOCITY'
   return null
 }

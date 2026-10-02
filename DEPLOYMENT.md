@@ -78,3 +78,11 @@ Game CI uses Bun in games/expo-crossy-road: bun install --frozen-lockfile; bunx 
 The connected Resend account lists dashcup.com (status 
 ot_started, sending capability enabled) and does not list mail.dashcup.com. No domain is verified for this app yet. Keep reward-email delivery disabled. When the intended subdomain is created, add the precise DNS records Resend supplies to Cloudflare, confirm verification, set the Worker sender/API/webhook secrets, then enable delivery.
 
+
+## Staged anti-cheat rollout (2026-10-02)
+
+- Staging version `49ccb780-68e1-49db-b1bf-0bf43ff832b9` runs the strengthened evidence checks and restored `60 requests / 60 seconds` global-per-IP Worker binding. A temporary staging threshold of 5/min returned 429, after which staging was restored to 60/min.
+- Smoke validated start auth/CSRF, high score velocity rejection, server-issued start-time matching, acceptable submission, one-time run replay rejection, referral qualification and quest progress. Suspicious repeated evidence is recorded with hashes/reason codes.
+- No staging or production database schema change was needed for this update. Production Neon migrations remain `0001_initial`, `0002_resend_delivery`.
+- Staging passes worker tests (11/11), typecheck, root lint and Wrangler dry-run. Next step is deploy the same Worker source to the existing production Worker and run read-only health/CORS/game-asset smoke checks. Pages remains unchanged.
+- Deterministic replay is not required. Keep replay flag false and do not call plausibility-checked scores perfect authoritative reconstructions.

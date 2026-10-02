@@ -74,3 +74,11 @@ Updated: 2026-10-02
 - Connected Resend domain list contains dashcup.com only, with status 
 ot_started; mail.dashcup.com is not listed. No verified sender domain was confirmed, and production reward delivery remains disabled. The account owner should add/verify the intended sending subdomain and configure its exact DNS records before enabling delivery.
 
+
+## Current release gates after anti-cheat update (2026-10-02)
+
+- Staging passed anti-cheat flow checks: bad score velocity 422, mismatched server duration 409, plausible score accepted as plausibility-checked with zero immediate trophies, duplicate run 409, no-session/missing-CSRF 403, and valid referral progression. Suspicious evidence including recurrence is recorded in staging Neon.
+- A temporary five-request/60-second staging rate limit produced 429; staging is restored to the configured 60 requests/60 seconds. Cloudflare documents Worker rate counters as location-local/eventually consistent, so this protects against casual bursts but is not strict global accounting.
+- Production Worker source is ready for deploy after the passing staging suite. Production Neon already has both existing migrations and 17 tables. Do not change schema for this release update.
+- Remaining: production Worker release/smoke; browser E2E unavailable due CUA startup ACL; canonical Bun audit remains 8 known advisories (7 high, 1 moderate); live frontend still has not received source-only GameBridge button copy because Pages was not redeployed; Resend/ad/provider features remain disabled until verified configuration.
+- Replay is explicitly out of scope as a release blocker. Scores are never described as perfectly server-reproduced.
