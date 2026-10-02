@@ -15,13 +15,14 @@ export interface GameInputEvidence {
 
 export interface EndGameResponse {
   accepted: boolean
-  verification: 'pending' | 'verified'
+  verification: 'pending' | 'verified' | 'plausibility_checked'
   awarded: boolean
   score?: number
   trophiesEarned: number
   totalTrophies?: number
   runId?: string
   code?: string
+  state?: { me: MeResponse; quests: Quest[] }
 }
 
 export interface Quest {
@@ -71,6 +72,7 @@ export interface ClaimQuestResponse {
   success: boolean
   trophiesAwarded: number
   totalTrophies: number
+  quest: Quest
 }
 
 export interface ReferralLinkResponse {

@@ -56,3 +56,15 @@ Updated: 2026-10-02
 - Production Worker version `5f3cc03f-e822-415a-a097-36de130f6148` is live on existing API/game domains. Rate-limit binding is 60 requests/60 seconds per IP; `GAME_REPLAY_ENABLED=false` and reward email stays disabled.
 - Game root and full 2.16 MB Expo JS bundle returned 200; API health and Neon connectivity 200/true. No Pages deployment or new Cloudflare resource was created.
 - Tests after the source update: Worker 11/11, typecheck pass, root lint pass, Wrangler production dry-run pass; staging flow smoke passed before promotion.
+
+## Resource optimization snapshot — 2026-10-02
+
+- Architecture unchanged: one existing Pages project, one production Worker serving API/game, one staging Worker, and Neon only. No additional Cloudflare storage/service or database was created.
+- Dashboard load: one `/api/bootstrap` HTTP request. Existing-session bootstrap has 5 SQL statements after optimization (CSRF/session update; idempotent quest seed; combined profile+quest select; active top-20 query; closed top-20 query that also determines current-user eligibility). Before it had 8 statements; removed three by combining session lookup/CSRF rotation, profile/quest read, and closed leaderboard/eligibility.
+- Game lifecycle: 2 API Worker requests per run (start/end); gameplay has zero API requests, zero parent React updates per input, and zero Neon calls. The end response includes current profile/quests, removing two GET requests and 4 SQL statements compared with completion followed by `/api/me` and `/api/quests`. Request body remains capped at 128 KB; inputs capped at 2,000.
+- Quest claim: 1 POST, with a CSRF/session query plus one atomic SQL claim/wallet/leaderboard transaction (2 SQL statements). Returned claim state removes the previous two GETs/four SQL statements. Reward details save: 1 POST and one update statement after auth; response returns the saved values, avoiding two old GETs/four SQL statements.
+- Reward redemption remains one explicit mutation; no inventory polling. The transaction keeps row lock, threshold check and `SKIP LOCKED`; email stays disabled. No provider polling exists.
+- Leaderboards are top-20 bounded and use `cycle_scores_rank_idx`. Staging EXPLAIN uses that index. Shared public caching was not applied to authenticated/private API responses.
+- Worker rate limits configured at API 60/60s and expensive mutation 30/60s. Cloudflare binding accounting is regional/eventually consistent; these are settings, not proven strict global quotas.
+- Expo hashed JS/media assets receive one-year immutable caching; the measured 2,162,206-byte JS asset was confirmed HTTP 200 with that header in staging and production. `/api/health` is `no-store`. Static assets use the Worker assets binding; only `/api/*` is configured to run application Worker first.
+- Counts above are code-path counts from the implementation and staging flow. No production load test, billable usage measurement, or DAU capacity assertion was made. Neon `pg_stat_statements` is absent, so cumulative query/write telemetry was not available.

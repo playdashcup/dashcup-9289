@@ -17,7 +17,8 @@
     "REWARD_EMAIL_DELIVERY_ENABLED": "false"
   },
   "ratelimits": [
-    { "name": "API_RATE_LIMIT", "namespace_id": "9289001", "simple": { "limit": 60, "period": 60 } }
+    { "name": "API_RATE_LIMIT", "namespace_id": "9289001", "simple": { "limit": 60, "period": 60 } },
+    { "name": "MUTATION_RATE_LIMIT", "namespace_id": "9289003", "simple": { "limit": 30, "period": 60 } }
   ],
   "routes": [
     { "pattern": "api.dashcup.com", "custom_domain": true },
@@ -35,7 +36,8 @@
         "REWARD_EMAIL_DELIVERY_ENABLED": "false"
       },
       "ratelimits": [
-        { "name": "API_RATE_LIMIT", "namespace_id": "9289002", "simple": { "limit": 60, "period": 60 } }
+        { "name": "API_RATE_LIMIT", "namespace_id": "9289002", "simple": { "limit": 60, "period": 60 } },
+        { "name": "MUTATION_RATE_LIMIT", "namespace_id": "9289004", "simple": { "limit": 30, "period": 60 } }
       ]
     }
   }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
-import { isRateLimited, rateLimitKey } from '../src/security/rate-limit.ts'
+import { isExpensiveMutation, isRateLimited, rateLimitKey } from '../src/security/rate-limit.ts'
 import { biweeklyId, dayId, QUESTS, validateEvidence, weekId } from '../src/domain.ts'
 import { constantTimeStringEqual } from '../src/security/timing-safe.ts'
 import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '../src/security/reward-code.ts'
@@ -64,6 +64,17 @@ test('returns a 429 response when the Cloudflare rate-limit binding rejects a re
   assert.deepEqual(await response.json(), { error: 'Too many requests', code: 'RATE_LIMITED' })
   assert.deepEqual(observedKeys, ['198.51.100.7'])
   assert.equal(rateLimitKey('198.51.100.7'), rateLimitKey('198.51.100.7'))
+})
+
+test('applies the stricter mutation budget only to expensive POST routes', () => {
+  assert.equal(isExpensiveMutation('POST', '/api/game/start'), true)
+  assert.equal(isExpensiveMutation('POST', '/api/game/end'), true)
+  assert.equal(isExpensiveMutation('POST', '/api/quests/daily%3Afoo/claim'), true)
+  assert.equal(isExpensiveMutation('POST', '/api/rewards/redeem'), true)
+  assert.equal(isExpensiveMutation('POST', '/api/rewards/email'), true)
+  assert.equal(isExpensiveMutation('POST', '/webhooks/resend'), true)
+  assert.equal(isExpensiveMutation('GET', '/api/rewards/status'), false)
+  assert.equal(isExpensiveMutation('POST', '/api/leaderboard'), false)
 })
 
 test('publishes exactly four daily and five weekly quests with the guide values', () => {

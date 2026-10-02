@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
-import type { GameInputEvidence, StartGameResponse } from '@/lib/types'
+import type { EndGameResponse, GameInputEvidence, StartGameResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Gamepad2, Play, RotateCcw } from 'lucide-react'
 
@@ -10,7 +10,7 @@ const GAME_ORIGIN = process.env.NEXT_PUBLIC_GAME_ORIGIN || (process.env.NODE_ENV
 
 type GameState = 'idle' | 'starting' | 'playing' | 'finishing' | 'complete' | 'error'
 
-export function GameBridge({ onComplete }: { onComplete: () => void }) {
+export function GameBridge({ onComplete }: { onComplete: (state?: EndGameResponse['state']) => void }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const gameReady = useRef(false)
   const runRef = useRef<StartGameResponse | null>(null)
@@ -41,8 +41,8 @@ export function GameBridge({ onComplete }: { onComplete: () => void }) {
         setState('finishing')
         try {
           // Read the ref only after all earlier postMessage input events have been processed.
-          await api.endGame({ runId: activeRun.runId, runToken: activeRun.runToken, clientScore: Number(event.data.clientScore) || 0, durationMs: Number(event.data.durationMs) || 0, inputs: inputsRef.current.slice() })
-          runRef.current = null; setState('complete'); onComplete()
+          const result = await api.endGame({ runId: activeRun.runId, runToken: activeRun.runToken, clientScore: Number(event.data.clientScore) || 0, durationMs: Number(event.data.durationMs) || 0, inputs: inputsRef.current.slice() })
+          runRef.current = null; setState('complete'); onComplete(result.state)
         } catch (cause) { setError(cause instanceof Error ? cause.message : 'Run verification failed'); setState('error') }
       }
     }

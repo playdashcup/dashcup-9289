@@ -68,3 +68,14 @@ Audit date: 2026-10-02
 - Existing Worker is updated in production at version `5f3cc03f-e822-415a-a097-36de130f6148`, serving API and Expo game assets on the existing domains.
 - The strengthened evidence checks from this source audit were staged, tested, then deployed. They provide practical anti-cheat, not exact server-side Crossy Road score reconstruction. Replay remains disabled; verified referrals/quests are tied to plausibility-accepted authenticated sessions.
 - Existing Pages output was preserved without rebuild/deploy. Consequently the live frontend may not yet show source-only GameBridge updates such as exact `5x Reward` copy; the Worker/game host itself was verified.
+
+## Resource optimization source audit — 2026-10-02
+
+- Existing component and API architecture retained. Dashboard uses one bootstrap call; an in-flight guard prevents duplicate concurrent bootstrap calls. GameBridge continues to buffer evidence locally and sends a single bounded end-run payload.
+- Run completion updates Dashboard profile/quests from the API mutation response and avoids `/api/me` + `/api/quests`. Quest claim updates local server-authoritative state from claim response and avoids refetching me/quests. Reward email update returns saved server values and updates local UI without a follow-up GET.
+- Bootstrap now executes 5 SQL statements for a valid existing session: CSRF/session update, idempotent cycle quest seed, combined user/quest snapshot, active top-20 leaderboard, and a closed top-20 leaderboard query which also provides current-user eligibility/redemption status. Static quest metadata remains in `server/src/domain.ts`.
+- The previous 8-statement bootstrap is reduced by three: session select plus CSRF update became one update-returning statement; user and quest selects became one snapshot; closed leaderboard and eligibility became a top-20 query. Profile/quest data and public rank data are bounded by the current user and 20 entries.
+- Game start/end and claims remain atomic for durable writes; game completion currently performs one post-mutation profile/quest snapshot query to return current state. Input data causes no SQL until game end. SQL statement counts are code-path estimates, as Neon query statistics are unavailable.
+- `server/src/security/rate-limit.ts` scopes stricter limiter to expensive mutations; Wrangler config has 30/60s staging and production binding alongside existing 60/60s API binding. No new service.
+- `server/game-dist/_headers` and Expo public `_headers` set immutable caching only for hashed JS/media assets. `/api/*` still runs Worker first and receives `no-store`; static asset misses use the existing assets handler.
+- No unbounded table read, `SELECT *`, N+1, polling/heartbeat, per-frame game request, new migration, or additional infrastructure was introduced in this pass.

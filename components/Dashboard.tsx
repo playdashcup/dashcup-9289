@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '@/lib/api'
-import type { EligibilityResponse, LeaderboardResponse, MeResponse, Quest, ReferralLinkResponse } from '@/lib/types'
+import type { ClaimQuestResponse, EndGameResponse, EligibilityResponse, LeaderboardResponse, MeResponse, Quest, ReferralLinkResponse } from '@/lib/types'
 import { GameBridge } from '@/components/Game/GameBridge'
 import { QuestBoard } from '@/components/Quests/QuestBoard'
 import { Leaderboard } from '@/components/Quests/Leaderboard'
@@ -31,8 +31,6 @@ export function Dashboard() {
   const [booting, setBooting] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const refreshMe = useCallback(async () => setMe(await api.getMe()), [])
-  const refreshQuests = useCallback(async () => setQuests(await api.getQuests()), [])
   const loadData = useCallback(async () => {
     try {
       const referralCode = new URLSearchParams(window.location.search).get('ref') ?? undefined
@@ -49,22 +47,22 @@ export function Dashboard() {
   }, [])
 
   useEffect(() => {
-    let current = true
-    const referralCode = new URLSearchParams(window.location.search).get('ref') ?? undefined
-    api.bootstrap(referralCode).then((bootstrap) => {
-      if (!current) return
-      window.history.replaceState({}, '', window.location.pathname)
-      setMe(bootstrap.me)
-      setQuests(bootstrap.quests)
-      setLeaderboard(bootstrap.leaderboard)
-      setEligibility(bootstrap.eligibility)
-      setReferral(bootstrap.referral)
-    }).catch((cause) => {
-      if (current) setError(cause instanceof Error ? cause.message : 'Unable to connect to DASHCUP')
-    }).finally(() => {
-      if (current) setBooting(false)
-    })
-    return () => { current = false }
+    void Promise.resolve().then(loadData)
+  }, [loadData])
+
+  const onGameComplete = useCallback((state?: EndGameResponse['state']) => {
+    if (!state) return
+    setMe(state.me)
+    setQuests(state.quests)
+  }, [])
+
+  const onQuestClaimed = useCallback((result: ClaimQuestResponse) => {
+    setMe((current) => current ? { ...current, trophies: result.totalTrophies } : current)
+    setQuests((current) => current?.map((quest) => quest.id === result.quest.id ? result.quest : quest) ?? current)
+  }, [])
+
+  const onRewardDetailsSaved = useCallback((rewardEmail: string, giftChoice: string) => {
+    setMe((current) => current ? { ...current, rewardEmail, giftChoice } : current)
   }, [])
 
   const trophyLabel = me?.trophies == null ? '—' : me.trophies.toLocaleString()
@@ -107,10 +105,10 @@ export function Dashboard() {
 
         {error && <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200"><span>{error}</span><button onClick={() => { setBooting(true); void loadData() }} className="font-bold underline">Try again</button></div>}
         {booting ? <div className="grid min-h-[440px] place-items-center rounded-3xl border border-white/10 bg-white/[0.025]"><div className="text-center"><div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-cyan-300/20 border-t-cyan-300" /><p className="font-mono text-xs uppercase tracking-widest text-zinc-500">Syncing DASHCUP</p></div></div> : <>
-          {active === 'arcade' && <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.35fr_.65fr]"><GameBridge onComplete={() => { void refreshMe(); void refreshQuests() }} /><ReferralPanel referralUrl={referral?.referralUrl ?? null} onViewQuests={() => setActive('quests')} /></div>}
-          {active === 'quests' && <QuestBoard quests={quests} onRefresh={refreshQuests} onTrophiesChanged={refreshMe} />}
+          {active === 'arcade' && <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.35fr_.65fr]"><GameBridge onComplete={onGameComplete} /><ReferralPanel referralUrl={referral?.referralUrl ?? null} onViewQuests={() => setActive('quests')} /></div>}
+          {active === 'quests' && <QuestBoard quests={quests} onClaimed={onQuestClaimed} />}
           {active === 'leaderboard' && <Leaderboard data={leaderboard} onRetry={async () => setLeaderboard(await api.getLeaderboard())} />}
-          {active === 'rewards' && <RewardPanel eligibility={eligibility} me={me} onRefresh={async () => { await refreshMe(); setEligibility(await api.getEligibility()) }} />}
+          {active === 'rewards' && <RewardPanel eligibility={eligibility} me={me} onDetailsSaved={onRewardDetailsSaved} />}
         </>}
       </main>
 

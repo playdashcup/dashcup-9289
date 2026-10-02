@@ -6,13 +6,14 @@ import { decryptRewardCode, encryptRewardCode, type RewardType } from './securit
 import { constantTimeStringEqual } from './security/timing-safe'
 import { rewardEmailTemplate } from './email/reward-template'
 import { sendRewardEmail } from './email/resend'
-import { isRateLimited, rateLimitKey } from './security/rate-limit'
+import { isExpensiveMutation, isRateLimited, rateLimitKey } from './security/rate-limit'
 import { biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, validateEvidence, weekId } from './domain'
 
 interface Env {
   DATABASE_URL?: string
   ASSETS: { fetch(request: Request): Promise<Response> }
   API_RATE_LIMIT: { limit(input: { key: string }): Promise<{ success: boolean }> }
+  MUTATION_RATE_LIMIT?: { limit(input: { key: string }): Promise<{ success: boolean }> }
   ALLOWED_ORIGINS: string
   ENVIRONMENT: string
   PUBLIC_ORIGIN: string
@@ -93,6 +94,10 @@ app.use('/api/*', async (c, next) => {
   if (await isRateLimited(c.env.API_RATE_LIMIT, rateLimitKey(address))) {
     return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
   }
+  if (isExpensiveMutation(c.req.method, c.req.path)
+    && await isRateLimited(c.env.MUTATION_RATE_LIMIT, rateLimitKey(address))) {
+    return c.json({ error: 'Too many mutation requests', code: 'MUTATION_RATE_LIMITED' }, 429)
+  }
   await next()
 })
 
@@ -104,6 +109,14 @@ app.use('/webhooks/resend', bodyLimit({
   maxSize: 64_000,
   onError: (c) => c.json({ error: 'Payload too large', code: 'PAYLOAD_TOO_LARGE' }, 413),
 }))
+app.use('/webhooks/resend', async (c, next) => {
+  const address = c.req.header('CF-Connecting-IP') ?? 'unknown'
+  if (isExpensiveMutation(c.req.method, c.req.path)
+    && await isRateLimited(c.env.MUTATION_RATE_LIMIT, rateLimitKey(address))) {
+    return c.json({ error: 'Too many provider callbacks', code: 'MUTATION_RATE_LIMITED' }, 429)
+  }
+  await next()
+})
 
 app.get('/api/health', async (c) => {
   try {
@@ -117,26 +130,28 @@ app.get('/api/health', async (c) => {
 app.get('/api/bootstrap', async (c) => {
   const sql = sqlFor(c.env)
   const now = new Date()
-  let csrfToken: string
+  let csrfToken = randomToken()
+  let csrfHash = await sha256(csrfToken)
   let token = getCookie(c, SESSION_COOKIE)
   let session: { id: string; user_id: string } | null = null
   if (token) {
-    const tokenHash = await sha256(token)
-    const rows = await sql`SELECT id, user_id FROM sessions WHERE token_hash=${tokenHash} AND expires_at > now() AND revoked_at IS NULL LIMIT 1`
-    session = (rows[0] as { id: string; user_id: string } | undefined) ?? null
+    const [rotated] = await sql`UPDATE sessions SET csrf_hash=${csrfHash}
+      WHERE token_hash=${await sha256(token)} AND expires_at > now() AND revoked_at IS NULL
+      RETURNING id,user_id`
+    session = (rotated as { id: string; user_id: string } | undefined) ?? null
   }
 
   if (!session) {
     token = randomToken()
-    const csrf = randomToken()
-    csrfToken = csrf
+    csrfToken = randomToken()
+    csrfHash = await sha256(csrfToken)
     const referralCode = randomToken(8)
     const [created] = await sql`
       WITH u AS (
         INSERT INTO users(referral_code) VALUES (${referralCode}) RETURNING id
       ), s AS (
         INSERT INTO sessions(user_id, token_hash, csrf_hash, expires_at)
-        SELECT id, ${await sha256(token)}, ${await sha256(csrf)}, now() + interval '30 days' FROM u
+        SELECT id, ${await sha256(token)}, ${csrfHash}, now() + interval '30 days' FROM u
         RETURNING id, user_id
       ) SELECT id, user_id FROM s`
     session = created as { id: string; user_id: string }
@@ -147,27 +162,16 @@ app.get('/api/bootstrap', async (c) => {
         SELECT id, ${session.user_id}, ${referralCodeQuery} FROM users WHERE referral_code=${referralCodeQuery} AND id <> ${session.user_id}
         ON CONFLICT(referee_id) DO NOTHING`
     }
-    c.set('csrfHash', await sha256(csrf))
-    c.header('X-Dashcup-CSRF-Token', csrf)
-  } else {
-    const csrf = randomToken()
-    csrfToken = csrf
-    const csrfHash = await sha256(csrf)
-    await sql`UPDATE sessions SET csrf_hash=${csrfHash} WHERE id=${session.id}`
-    c.set('csrfHash', csrfHash)
-    c.header('X-Dashcup-CSRF-Token', csrf)
   }
+  c.set('csrfHash', csrfHash)
+  c.header('X-Dashcup-CSRF-Token', csrfToken)
   const activeSession = session
   if (!activeSession) return c.json({ error: 'Unable to establish session', code: 'SESSION_FAILED' }, 503)
   c.set('userId', activeSession.user_id)
   c.set('sessionId', activeSession.id)
 
-  const [user] = await sql`SELECT id, display_name, trophies, personal_best, referral_code, reward_email, gift_choice FROM users WHERE id=${activeSession.user_id} AND disabled_at IS NULL`
-  if (!user) return c.json({ error: 'Session user unavailable', code: 'SESSION_INVALID' }, 401)
   const dailyId = dayId(now)
   const weeklyId = weekId(now)
-  const activeCycle = biweeklyId(now)
-  const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
   const questRows = QUESTS.map((quest) => ({
     id: `${quest.period}:${quest.period === 'daily' ? dailyId : weeklyId}:${quest.type}`,
     user_id: activeSession.user_id,
@@ -182,27 +186,35 @@ app.get('/api/bootstrap', async (c) => {
     FROM jsonb_to_recordset(${JSON.stringify(questRows)}::jsonb) AS x(id text,user_id uuid,cycle_type text,cycle_id text,quest_type text,target integer,reward integer)
     ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO NOTHING`
 
-  const quests = await sql`SELECT id, quest_type AS type, cycle_type AS period, target, progress, reward, completed, claimed
-    FROM quests WHERE user_id=${activeSession.user_id} AND ((cycle_type='daily' AND cycle_id=${dailyId}) OR (cycle_type='weekly' AND cycle_id=${weeklyId})) ORDER BY cycle_type, quest_type`
+  const [snapshot] = await sql`SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.gift_choice,
+      COALESCE(jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
+        'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
+        ORDER BY q.cycle_type,q.quest_type) FILTER (WHERE q.id IS NOT NULL),'[]'::jsonb) AS quests
+    FROM users u LEFT JOIN quests q ON q.user_id=u.id AND
+      ((q.cycle_type='daily' AND q.cycle_id=${dailyId}) OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId}))
+    WHERE u.id=${activeSession.user_id} AND u.disabled_at IS NULL GROUP BY u.id`
+  const user = snapshot
+  if (!user) return c.json({ error: 'Session user unavailable', code: 'SESSION_INVALID' }, 401)
+  const quests = snapshot.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
+  const activeCycle = biweeklyId(now)
+  const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
   const activeRows = await sql`SELECT row_number() OVER (ORDER BY cs.trophies DESC, cs.user_id)::integer AS rank,
     u.display_name AS name, cs.trophies FROM cycle_scores cs JOIN users u ON u.id=cs.user_id
     WHERE cs.cycle_id=${activeCycle} ORDER BY cs.trophies DESC, cs.user_id LIMIT 20`
-  const closedRows = await sql`SELECT row_number() OVER (ORDER BY cs.trophies DESC, cs.user_id)::integer AS rank,
-    u.display_name AS name, cs.trophies FROM cycle_scores cs JOIN users u ON u.id=cs.user_id
-    WHERE cs.cycle_id=${closedCycle} ORDER BY cs.trophies DESC, cs.user_id LIMIT 20`
-  const [eligibility] = await sql`SELECT rank::integer, redeemed FROM (
-    SELECT cs.user_id,row_number() OVER (ORDER BY cs.trophies DESC, cs.user_id) AS rank,
-      EXISTS(SELECT 1 FROM reward_redemptions r WHERE r.user_id=cs.user_id AND r.cycle_id=${closedCycle} AND r.status <> 'cancelled') AS redeemed
-    FROM cycle_scores cs WHERE cs.cycle_id=${closedCycle}
-  ) ranked WHERE user_id=${activeSession.user_id} AND rank <= 20
-  ORDER BY rank LIMIT 1`
-  const origin = new URL(c.req.url).origin
+  const closedRows = await sql`SELECT ranked.rank,ranked.name,ranked.trophies,ranked.is_current_user,
+      CASE WHEN ranked.is_current_user THEN EXISTS(SELECT 1 FROM reward_redemptions r
+        WHERE r.user_id=ranked.user_id AND r.cycle_id=${closedCycle} AND r.status <> 'cancelled') ELSE false END AS redeemed
+    FROM (SELECT row_number() OVER (ORDER BY cs.trophies DESC,cs.user_id)::integer AS rank,
+        u.display_name AS name,cs.trophies,cs.user_id,(cs.user_id=${activeSession.user_id}) AS is_current_user
+      FROM cycle_scores cs JOIN users u ON u.id=cs.user_id WHERE cs.cycle_id=${closedCycle}
+      ORDER BY cs.trophies DESC,cs.user_id LIMIT 20) ranked ORDER BY ranked.rank`
+  const eligibility = closedRows.find((row) => row.is_current_user)
   return c.json({
     success: true,
     csrfToken,
     me: { user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, giftChoice: user.gift_choice },
     quests: quests.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })),
-    leaderboard: { active: activeRows, closed: closedRows, cycle: activeCycle },
+    leaderboard: { active: activeRows, closed: closedRows.map(({ rank, name, trophies }) => ({ rank, name, trophies })), cycle: activeCycle },
     eligibility: { eligible: Boolean(eligibility), rank: eligibility?.rank ?? null, cycle: closedCycle, rewardEmail: user.reward_email, giftChoice: user.gift_choice, redeemed: eligibility?.redeemed ?? false },
     referral: { referralCode: user.referral_code, referralUrl: `${c.env.PUBLIC_ORIGIN}/?ref=${encodeURIComponent(user.referral_code)}` },
   })
@@ -328,20 +340,20 @@ app.post('/api/game/end', async (c) => {
     ), activity AS (
       UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
       FROM stored s WHERE q.user_id=s.user_id AND ((q.cycle_type='daily' AND q.cycle_id=${dailyId} AND q.quest_type IN ('play_1','play_5'))
-        OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='play_20')) RETURNING q.user_id
+        OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='play_20')) AND q.progress<q.target RETURNING q.user_id
     ), new_pb AS (
       UPDATE users u SET personal_best=s.verified_score,updated_at=now() FROM stored s
       WHERE u.id=s.user_id AND s.verified_score>u.personal_best RETURNING u.id
     ), daily_pb AS (
-      UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=true,updated_at=now()
-      FROM new_pb p WHERE q.user_id=p.id AND q.cycle_type='daily' AND q.cycle_id=${dailyId} AND q.quest_type='new_pb' RETURNING q.user_id
+      UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
+      FROM new_pb p WHERE q.user_id=p.id AND q.cycle_type='daily' AND q.cycle_id=${dailyId} AND q.quest_type='new_pb' AND q.progress<q.target RETURNING q.user_id
     ), pb_day AS (
       INSERT INTO weekly_pb_days(user_id,week_id,utc_day,score)
       SELECT p.id,${weeklyId},${dailyId}::date,s.verified_score FROM new_pb p JOIN stored s ON s.user_id=p.id
       ON CONFLICT(user_id,week_id,utc_day) DO NOTHING RETURNING user_id
     ), pb_week AS (
       UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
-      FROM pb_day p WHERE q.user_id=p.user_id AND q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='pb_3_days' RETURNING q.user_id
+      FROM pb_day p WHERE q.user_id=p.user_id AND q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='pb_3_days' AND q.progress<q.target RETURNING q.user_id
     ), qualified AS (
       UPDATE referrals r SET qualified_at=now() FROM stored s
       WHERE r.referee_id=s.user_id AND r.qualified_at IS NULL RETURNING r.referrer_id
@@ -350,7 +362,7 @@ app.post('/api/game/end', async (c) => {
       SELECT 'weekly:'||${weeklyId}||':ref_2',referrer_id,'weekly',${weeklyId},'ref_2',2,1,false,3000 FROM qualified
       ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO UPDATE
         SET progress=LEAST(quests.target,quests.progress+1),completed=(LEAST(quests.target,quests.progress+1)>=quests.target),updated_at=now()
-        WHERE quests.claimed=false
+        WHERE quests.claimed=false AND quests.progress<quests.target
       RETURNING user_id
     ) SELECT s.run_id,s.verified_score,(SELECT count(*) FROM activity) AS activity_events,
       (SELECT count(*) FROM daily_pb) AS daily_pb_events,(SELECT count(*) FROM pb_week) AS weekly_pb_events,
@@ -371,7 +383,25 @@ app.post('/api/game/end', async (c) => {
     await logSuspiciousRun(c, safeRunId, reasons[0], evidenceHash)
     return c.json({ error: 'Run token is invalid, expired, or already used', code: 'RUN_INVALID' }, 409)
   }
-  return c.json({ accepted: true, verification: 'plausibility_checked', awarded: false, score: recorded.verified_score, trophiesEarned: 0 })
+  const [progress] = await sql`SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.gift_choice,
+      COALESCE(jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
+        'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
+        ORDER BY q.cycle_type,q.quest_type) FILTER (WHERE q.id IS NOT NULL),'[]'::jsonb) AS quests
+    FROM users u LEFT JOIN quests q ON q.user_id=u.id AND
+      ((q.cycle_type='daily' AND q.cycle_id=${dailyId}) OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId}))
+    WHERE u.id=${c.get('userId')} GROUP BY u.id`
+  const stateQuests = progress.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
+  return c.json({
+    accepted: true,
+    verification: 'plausibility_checked',
+    awarded: false,
+    score: recorded.verified_score,
+    trophiesEarned: 0,
+    state: {
+      me: { user: { id: progress.id, displayName: progress.display_name }, trophies: Number(progress.trophies), personalBest: progress.personal_best, referralCode: progress.referral_code, rewardEmail: progress.reward_email, giftChoice: progress.gift_choice },
+      quests: stateQuests.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })),
+    },
+  })
 })
 
 app.get('/api/quests', async (c) => {
@@ -396,7 +426,7 @@ app.post('/api/quests/:questId/claim', async (c) => {
     ), claimed AS (
       UPDATE quests q SET claimed=true,updated_at=now() FROM target t
       WHERE q.user_id=t.user_id AND q.cycle_type=t.cycle_type AND q.cycle_id=t.cycle_id AND q.quest_type=t.quest_type
-      RETURNING q.user_id,q.cycle_id,t.reward
+      RETURNING q.id,q.user_id,q.cycle_id,q.cycle_type,q.quest_type,q.target,q.progress,q.reward,q.completed,q.claimed
     ), wallet AS (
       UPDATE users u SET trophies=u.trophies+c.reward,updated_at=now() FROM claimed c
       WHERE u.id=c.user_id RETURNING u.id,u.trophies,c.cycle_id,c.reward
@@ -405,9 +435,12 @@ app.post('/api/quests/:questId/claim', async (c) => {
       SELECT id,cycle_id,reward FROM wallet ON CONFLICT(user_id,cycle_id)
       DO UPDATE SET trophies=cycle_scores.trophies+EXCLUDED.trophies,updated_at=now()
       RETURNING user_id
-    ) SELECT wallet.reward AS awarded,wallet.trophies AS total FROM wallet JOIN score ON score.user_id=wallet.id`
+    ) SELECT wallet.reward AS awarded,wallet.trophies AS total,claimed.id AS quest_id,claimed.progress,
+        claimed.target,claimed.completed,claimed.claimed,claimed.quest_type,claimed.cycle_type
+      FROM wallet JOIN score ON score.user_id=wallet.id CROSS JOIN claimed`
   if (!claim) return c.json({ error: 'Quest is not claimable or has already been claimed', code: 'QUEST_NOT_CLAIMABLE' }, 409)
-  return c.json({ success: true, trophiesAwarded: claim.awarded, totalTrophies: Number(claim.total) })
+  const definition = QUESTS.find((quest) => quest.type === claim.quest_type)
+  return c.json({ success: true, quest: { id: claim.quest_id, title: definition?.title ?? claim.quest_type, description: definition?.description, period: claim.cycle_type, progress: claim.progress, target: claim.target, reward: claim.awarded, completed: claim.completed, claimed: claim.claimed }, trophiesAwarded: claim.awarded, totalTrophies: Number(claim.total) })
 })
 
 app.get('/api/leaderboard', async (c) => {
@@ -426,11 +459,11 @@ app.get('/api/rewards/eligibility', async (c) => {
   if (!await requireSession(c)) return c.json({ error: 'Sign in required', code: 'UNAUTHENTICATED' }, 401)
   const active = biweeklyId(new Date())
   const closed = new Date(Date.parse(`${active}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
-  const [row] = await sqlFor(c.env)`SELECT rank::integer,redeemed FROM (
-    SELECT cs.user_id,row_number() OVER(ORDER BY cs.trophies DESC,cs.user_id) AS rank,
-      EXISTS(SELECT 1 FROM reward_redemptions r WHERE r.user_id=cs.user_id AND r.cycle_id=${closed} AND r.status <> 'cancelled') AS redeemed
-    FROM cycle_scores cs WHERE cs.cycle_id=${closed}
-  ) ranked WHERE user_id=${c.get('userId')} AND rank <= 20`
+  const [row] = await sqlFor(c.env)`SELECT ranked.rank,EXISTS(SELECT 1 FROM reward_redemptions r
+      WHERE r.user_id=ranked.user_id AND r.cycle_id=${closed} AND r.status <> 'cancelled') AS redeemed
+    FROM (SELECT cs.user_id,row_number() OVER(ORDER BY cs.trophies DESC,cs.user_id)::integer AS rank
+      FROM cycle_scores cs WHERE cs.cycle_id=${closed}
+      ORDER BY cs.trophies DESC,cs.user_id LIMIT 20) ranked WHERE ranked.user_id=${c.get('userId')}`
   return c.json({ eligible: Boolean(row), rank: row?.rank ?? null, cycle: closed, redeemed: row?.redeemed ?? false })
 })
 
@@ -448,22 +481,31 @@ app.post('/api/rewards/email', async (c) => {
   const choices = new Set(['robux','freefire','vbucks','pubg','cod'])
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !body.giftChoice || !choices.has(body.giftChoice)) return c.json({ error: 'Valid email and reward category required', code: 'INVALID_REWARD_DETAILS' }, 400)
   const sql = sqlFor(c.env)
-  const [result] = await sql`UPDATE users SET reward_email=${email},gift_choice=${body.giftChoice},
-      reward_email_change_count=CASE
-        WHEN reward_email IS NOT DISTINCT FROM ${email} THEN reward_email_change_count
-        WHEN reward_email_window_started_at IS NULL OR reward_email_window_started_at <= now()-interval '7 days' THEN 1
-        ELSE reward_email_change_count+1 END,
-      reward_email_window_started_at=CASE
-        WHEN reward_email IS NOT DISTINCT FROM ${email} THEN reward_email_window_started_at
-        WHEN reward_email_window_started_at IS NULL OR reward_email_window_started_at <= now()-interval '7 days' THEN now()
-        ELSE reward_email_window_started_at END,
-      updated_at=now()
-    WHERE id=${c.get('userId')} AND (reward_email IS NOT DISTINCT FROM ${email}
-      OR reward_email_window_started_at IS NULL OR reward_email_window_started_at <= now()-interval '7 days'
-      OR reward_email_change_count < 3)
-    RETURNING id`
+  const [result] = await sql`WITH current AS MATERIALIZED (
+      SELECT id,reward_email,gift_choice,reward_email_change_count,reward_email_window_started_at
+      FROM users WHERE id=${c.get('userId')} FOR UPDATE
+    ), updated AS (
+      UPDATE users u SET reward_email=${email},gift_choice=${body.giftChoice},
+        reward_email_change_count=CASE
+          WHEN old.reward_email IS NOT DISTINCT FROM ${email} THEN old.reward_email_change_count
+          WHEN old.reward_email_window_started_at IS NULL OR old.reward_email_window_started_at <= now()-interval '7 days' THEN 1
+          ELSE old.reward_email_change_count+1 END,
+        reward_email_window_started_at=CASE
+          WHEN old.reward_email IS NOT DISTINCT FROM ${email} THEN old.reward_email_window_started_at
+          WHEN old.reward_email_window_started_at IS NULL OR old.reward_email_window_started_at <= now()-interval '7 days' THEN now()
+          ELSE old.reward_email_window_started_at END,
+        updated_at=now()
+      FROM current old WHERE u.id=old.id AND (old.reward_email IS NOT DISTINCT FROM ${email}
+        OR old.reward_email_window_started_at IS NULL OR old.reward_email_window_started_at <= now()-interval '7 days'
+        OR old.reward_email_change_count < 3)
+        AND (old.reward_email IS DISTINCT FROM ${email} OR old.gift_choice IS DISTINCT FROM ${body.giftChoice})
+      RETURNING u.reward_email,u.gift_choice
+    ) SELECT reward_email,gift_choice FROM updated
+      UNION ALL SELECT reward_email,gift_choice FROM current
+        WHERE reward_email IS NOT DISTINCT FROM ${email} AND gift_choice IS NOT DISTINCT FROM ${body.giftChoice}
+      LIMIT 1`
   if (!result) return c.json({ error: 'Only three reward email changes are allowed per seven days', code: 'EMAIL_CHANGE_LIMIT' }, 429)
-  return c.json({ success: true })
+  return c.json({ success: true, rewardEmail: result.reward_email, giftChoice: result.gift_choice })
 })
 
 app.post('/api/rewards/redeem', async (c) => {

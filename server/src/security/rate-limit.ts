@@ -8,6 +8,17 @@ export function rateLimitKey(address: string) {
   return address
 }
 
+export function isExpensiveMutation(method: string, path: string) {
+  if (method !== 'POST') return false
+  return path === '/api/game/start'
+    || path === '/api/game/end'
+    || /^\/api\/quests\/[^/]+\/claim$/.test(path)
+    || path === '/api/rewards/redeem'
+    || path === '/api/rewards/email'
+    || path === '/api/mylead/start'
+    || path === '/webhooks/resend'
+}
+
 export async function isRateLimited(binding: RateLimitBinding | undefined, key: string) {
   if (!binding) return false
   const result = await binding.limit({ key })

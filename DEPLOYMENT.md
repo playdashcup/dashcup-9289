@@ -95,3 +95,13 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - Production Neon schema remains on already applied migrations `0001_initial` and `0002_resend_delivery`; no additional migration was needed. Replay and reward email flags remain false.
 - Rate limiter restored to 60/min per IP across API routes. Staging-only five/min test produced 429; reverted to 60/min before production.
 - Existing Pages deployment remains untouched by this release; no frontend build or Pages deploy occurred.
+
+## Resource optimization rollout — 2026-10-02
+
+- Existing Pages project `dashcup-9289` remains connected to `codex/dashcup-rebuild`; custom domains remain `dashcup.com` and `www.dashcup.com`. No new Pages project or rebuild from a different frontend source was created. Source changes are included in the current branch release.
+- Existing Worker production deployment version: `abb362f1-c420-48b5-9511-21ce7851a1d5`, custom domains `api.dashcup.com` and `game.dashcup.com`; staging version: `0449293a-0203-4d1c-b032-2f761e0511c8`.
+- Both rate bindings are configured in staging/production: shared API 60/60s and expensive mutation 30/60s per key/IP. Cloudflare documents rate-limit bindings as location-scoped and eventually consistent; a configured threshold is not a strict global limit ([Cloudflare Rate Limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)).
+- API health returns 200 with Neon connected. Production CORS allows the exact apex/www origins and rejects an unrelated origin. Unauthenticated game start returns 403. Game root and the 2,162,206-byte hashed Expo bundle return 200; the bundle cache header is one-year immutable and API health stays `no-store`.
+- Existing `dashcup.com` verification file, manifest, `sw.js`, apex and `www` return 200. No database migration was run in this optimization release.
+- Staging lifecycle: session bootstrap, CSRF-protected start/end, daily play quest progress/claim, duplicate claim rejection (409), reward status, CORS allow/deny and game asset all verified. Resend delivery and ad/provider conversions remain disabled.
+- Git-connected Pages deployment is associated with the existing project and production branch. Confirm the newest Pages deployment after the source commit push; custom-domain HTTP checks returned 200 before this optimization was published.

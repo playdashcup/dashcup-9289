@@ -89,3 +89,11 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - No additional Neon migration was required. `GAME_REPLAY_ENABLED=false`; exact deterministic replay remains out of scope for this release.
 - Remaining release limitations: browser E2E CUA startup ACL; canonical Bun audit 8 known advisories; published Pages was intentionally not rebuilt so its old source UI may not include the newer 5x button text; Resend domain not verified in connected account and sender/API secrets remain disabled; real rewarded-ad/MyLead/Hilltop configs are unavailable.
 - Rate limiting uses Cloudflare's eventually consistent regional binding at 60/min per client IP. A temporary five/min staging exercise produced 429, then the configured sixty/minute value was restored and deployed.
+
+## Latest resource optimization state — 2026-10-02
+
+- Code and staging flow checks are complete. Existing production Worker was updated; the frontend optimization is in the same source branch and will be visible on Pages after its existing Git deployment completes.
+- Browser E2E remains unavailable because the Windows CUA/browser runtime fails during startup with `apply deny-read ACLs`. Staging HTTP checks cover the authenticated run, quest claim, CORS, and game asset flow.
+- No Neon migration is required. `pg_stat_statements` is not installed, so cumulative production query counts could not be measured; code-path SQL round trips are documented in `BUILD_REPORT.md` and `RESOURCE_BUDGET.md`.
+- Expo canonical Bun audit has 8 findings; `bun audit fix --dry-run` reports dependency-range blocks. Frontend production audit reports 56 advisories including one critical Next advisory. These require a separate dependency/security update.
+- Resend, rewarded ad payouts, MyLead conversion rewards, and Hilltop placements remain disabled pending verified provider configuration and trusted callbacks.

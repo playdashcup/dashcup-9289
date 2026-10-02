@@ -5,10 +5,10 @@ import type { Quest } from '@/lib/types'
 import { api } from '@/lib/api'
 import { Trophy, Check, Loader2, Target } from 'lucide-react'
 
-export function QuestBoard({ quests, onRefresh, onTrophiesChanged }: { quests: Quest[] | null; onRefresh: () => Promise<void>; onTrophiesChanged: () => Promise<void> }) {
+export function QuestBoard({ quests, onClaimed }: { quests: Quest[] | null; onClaimed: (result: Awaited<ReturnType<typeof api.claimQuest>>) => void }) {
   const [claiming, setClaiming] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const claim = async (id: string) => { setClaiming(id); setMessage(null); try { const result = await api.claimQuest(id); setMessage(`+${result.trophiesAwarded.toLocaleString()} trophies added`); await Promise.all([onRefresh(), onTrophiesChanged()]) } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Unable to claim quest') } finally { setClaiming(null) } }
+  const claim = async (id: string) => { setClaiming(id); setMessage(null); try { const result = await api.claimQuest(id); onClaimed(result); setMessage(`+${result.trophiesAwarded.toLocaleString()} trophies added`) } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Unable to claim quest') } finally { setClaiming(null) } }
   if (!quests) return <PanelMessage label="Loading quests…" />
   const daily = quests.filter((quest) => quest.period === 'daily')
   const weekly = quests.filter((quest) => quest.period === 'weekly')

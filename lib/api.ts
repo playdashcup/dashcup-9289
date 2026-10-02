@@ -14,6 +14,7 @@ import { ApiError } from '@/lib/types'
 
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN || (process.env.NODE_ENV === 'development' ? 'http://localhost:8787' : 'https://api.dashcup.com')
 let csrfToken: string | null = null
+let bootstrapInFlight: Promise<BootstrapResponse> | null = null
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_ORIGIN}${path}`, {
@@ -37,11 +38,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  bootstrap: async (referralCode?: string) => {
+  bootstrap: (referralCode?: string) => {
+    if (bootstrapInFlight) return bootstrapInFlight
     const query = referralCode ? `?ref=${encodeURIComponent(referralCode)}` : ''
-    const data = await request<BootstrapResponse>(`/api/bootstrap${query}`)
-    csrfToken = data.csrfToken
-    return data
+    const pending = request<BootstrapResponse>(`/api/bootstrap${query}`).then((data) => {
+      csrfToken = data.csrfToken
+      return data
+    })
+    bootstrapInFlight = pending
+    void pending.finally(() => {
+      if (bootstrapInFlight === pending) bootstrapInFlight = null
+    }).catch(() => undefined)
+    return pending
   },
   getMe: () => request<MeResponse>('/api/me'),
   startGame: () => request<StartGameResponse>('/api/game/start', { method: 'POST', body: JSON.stringify({}) }),
@@ -52,7 +60,7 @@ export const api = {
   getEligibility: () => request<EligibilityResponse>('/api/rewards/eligibility'),
   redeemReward: (giftChoice: string) => request<{ success: boolean; status: string }>('/api/rewards/redeem', { method: 'POST', body: JSON.stringify({ giftChoice }) }),
   getRewardStatus: () => request<{ status: string; redemptionId: string | null; updatedAt: string | null }>('/api/rewards/status'),
-  updateRewardEmail: (email: string, giftChoice: string) => request<{ success: boolean }>('/api/rewards/email', { method: 'POST', body: JSON.stringify({ email, giftChoice }) }),
+  updateRewardEmail: (email: string, giftChoice: string) => request<{ success: boolean; rewardEmail: string; giftChoice: string }>('/api/rewards/email', { method: 'POST', body: JSON.stringify({ email, giftChoice }) }),
   getReferralLink: () => request<ReferralLinkResponse>('/api/referral/link'),
   startMylead: () => request<{ success: boolean }>('/api/mylead/start', { method: 'POST', body: JSON.stringify({}) }),
   reportAntiCheat: (data: Record<string, unknown>) => request<{ success: boolean }>('/api/anti-cheat/report', { method: 'POST', body: JSON.stringify(data) }),
