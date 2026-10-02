@@ -3,11 +3,11 @@ Updated: 2026-10-02
 
 ## Git
 - Work is in C:\Users\RYZEN V\Documents\ChatGPT\dashcup\dashcup-9289-main on codex/dashcup-rebuild, based on main 2a5222980662f416ce4ab064000878a56e26ed3e.
-- HEAD `307244bfff1f277e52267bd01a5f653eeecdbbe7` is pushed on `origin/codex/dashcup-rebuild`; the worktree was clean when checked. Frontend/Worker checks pass; the canonical Bun audit reports 8 known advisories (7 high, 1 moderate).
+- The existing `codex/dashcup-rebuild` branch tracks origin; report updates were pushed and the worktree was clean at final verification. Frontend/Worker checks pass; the canonical Bun audit reports 8 known advisories (7 high, 1 moderate).
 
 ## Cloudflare
 - The existing `dashcup.com` zone is active in the intended account with `blakely.ns.cloudflare.com` and `norman.ns.cloudflare.com`; no duplicate zone was created.
-- Pages project `dashcup-9289` is connected to `codex/dashcup-rebuild`. The successful deployment for report commit `307244bfff1f277e52267bd01a5f653eeecdbbe7` is https://30640269.dashcup-9289.pages.dev; its site, manifest and service worker return HTTP 200. A proxied CNAME `www.dashcup.com` → `dashcup-9289.pages.dev` is configured; public DNS resolves through Cloudflare and HTTPS returns 200.
+- Pages project `dashcup-9289` is connected to `codex/dashcup-rebuild`; its stable project URL https://dashcup-9289.pages.dev and `www.dashcup.com` return HTTP 200, as do the manifest and service worker. A proxied CNAME `www.dashcup.com` → `dashcup-9289.pages.dev` is configured; public DNS resolves through Cloudflare.
 - Worker scripts list is empty. Local Wrangler reports not authenticated. Staging/production secrets are not configured; Worker-to-Neon and public API/game routes cannot be verified. Authenticate Wrangler with `wrangler login` or configure deployment credentials in the approved deployment environment.
 - DNS records for `api.dashcup.com` and `game.dashcup.com` are absent until the single Worker is deployed. The existing apex `dashcup.com` record currently points to unproxied `127.0.0.1`; apex serving/redirect is not verified.
 - Staging Wrangler configuration sets `routes: []`; staging and production dry-runs pass locally.

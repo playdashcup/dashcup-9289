@@ -6,7 +6,7 @@ Audit date: 2026-10-02
 - Next.js 16 App Router and React 19 v0 dashboard is the frontend/design source; static export is configured for Cloudflare Pages.
 - public/f50aae93c5fae9b355c1.txt contains the user-provided Hilltop verification token.
 - public/sw.js contains the supplied Monetag service-worker settings, Dashcup shell cache, and explicit API/cross-origin request bypass.
-- Cloudflare Pages deployment for report commit `307244bfff1f277e52267bd01a5f653eeecdbbe7` succeeded at https://30640269.dashcup-9289.pages.dev. The `www` CNAME points to the exact Pages project target; public DNS and HTTPS return success.
+- The stable Cloudflare Pages project URL https://dashcup-9289.pages.dev and `www.dashcup.com` return HTTP 200. The `www` CNAME points to the exact Pages project target; public DNS and HTTPS return success.
 
 ## Game
 - Expo Crossy Road vendored at games/expo-crossy-road with upstream source, README, Bun lock and license.

@@ -14,6 +14,6 @@ Updated: 2026-10-02
 - Worker unit tests: 10 passing.
 - Current run uses one bounded in-memory reference for move evidence and no per-move React state updates; no new platform resource was added.
 - GitHub CI Worker checks: 10 tests, TypeScript and both Wrangler dry-runs pass. Bun audit reports 8 known advisories.
-- Cloudflare Pages deployment for report commit `307244bfff1f277e52267bd01a5f653eeecdbbe7` succeeded at https://30640269.dashcup-9289.pages.dev. The zone is active; `www` CNAME is configured and public DNS/HTTPS return success. No Worker is deployed; api/game records are absent; no production API/game usage has been measured. Local Worker dry-runs pass, but Wrangler is unauthenticated.
+- The stable Cloudflare Pages project URL https://dashcup-9289.pages.dev is live. The zone is active; `www` CNAME is configured and public DNS/HTTPS return success. No Worker is deployed; api/game records are absent; no production API/game usage has been measured. Local Worker dry-runs pass, but Wrangler is unauthenticated.
 - No live cost or provider billing data was retrieved. No cost estimate is asserted.
 - Production usage, Neon compute, Worker requests, Pages bandwidth and email quotas remain unmeasured.
