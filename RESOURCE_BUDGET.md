@@ -13,7 +13,7 @@ Updated: 2026-10-02
 - Frontend build and lint pass; Expo web export pass (2.22 MB JavaScript bundle).
 - Worker unit tests: 10 passing.
 - Current run uses one bounded in-memory reference for move evidence and no per-move React state updates; no new platform resource was added.
-- Alternate local npm dependency resolution for Expo reported 42 audit findings (1 critical, 18 high, 22 moderate, 1 low); canonical Bun-lockfile audit was not completed.
-- Cloudflare Pages production deployment at https://5ac89a0f.dashcup-9289.pages.dev succeeded for source commit c6bfd537acce242cf3fff6d250178ada5166ec06. No Worker is deployed; no production API/game usage has been measured.
+- Alternate local npm dependency resolution for Expo reported 42 audit findings (1 critical, 18 high, 22 moderate, 1 low); CI now runs the canonical Bun-lockfile audit, pending its workflow result.
+- Cloudflare Pages production deployment at https://89448680.dashcup-9289.pages.dev succeeded for source commit c28a7b28765b3c29d1c4f46d42eb0a67e20b5a14. `www.dashcup.com` is active and returns HTTP 200. No Worker is deployed; no production API/game usage has been measured.
 - No live cost or provider billing data was retrieved. No cost estimate is asserted.
 - Production usage, Neon compute, Worker requests, Pages bandwidth and email quotas remain unmeasured.

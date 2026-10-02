@@ -47,6 +47,9 @@ jobs:
       - name: Install Expo game dependencies
         run: bun install --frozen-lockfile
         working-directory: games/expo-crossy-road
+      - name: Audit canonical Expo Bun lockfile
+        run: bun audit
+        working-directory: games/expo-crossy-road
       - name: Lint Expo game source
         run: bunx expo lint
         working-directory: games/expo-crossy-road
@@ -57,4 +60,5 @@ jobs:
       - run: pnpm exec wrangler types
       - run: pnpm exec tsc --noEmit
       - run: pnpm test
+      - run: pnpm exec wrangler deploy --dry-run --env staging
       - run: pnpm exec wrangler deploy --dry-run --env=""

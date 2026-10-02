@@ -3,12 +3,12 @@ Updated: 2026-10-02
 
 ## Git
 - Work is in C:\Users\RYZEN V\Documents\ChatGPT\dashcup\dashcup-9289-main on codex/dashcup-rebuild, based on main 2a5222980662f416ce4ab064000878a56e26ed3e.
-- Latest tested source commit c6bfd537acce242cf3fff6d250178ada5166ec06 is pushed and verified on origin. GitHub reports Vercel success; Cloudflare Pages built and deployed it successfully.
+- Latest tested source commit c28a7b28765b3c29d1c4f46d42eb0a67e20b5a14 is pushed and verified on origin. GitHub reports Vercel success; Cloudflare Pages built and deployed it successfully.
 
 ## Cloudflare
-- Connected Cloudflare API currently returns no dashcup.com zone for the account; Pages project access still works. Its www.dashcup.com domain is pending with “CNAME record not set”. The previously observed zone was pending during the last successful zone query; re-check when account/DNS state changes.
-- Pages production deployment for latest tested source commit succeeded at https://5ac89a0f.dashcup-9289.pages.dev; production_branch is codex/dashcup-rebuild.
-- Worker scripts list is empty. Local Wrangler reports not authenticated. Staging/production secrets are not configured; Worker-to-Neon and public API/game routes cannot be verified.
+- Connected Cloudflare API can read the intended account and Pages project but returns no dashcup.com zone. Pages reports www.dashcup.com active and a direct HTTPS GET returns 200.
+- Pages production deployment for commit c28a7b28765b3c29d1c4f46d42eb0a67e20b5a14 succeeded at https://89448680.dashcup-9289.pages.dev; production_branch is codex/dashcup-rebuild.
+- Worker scripts list is empty. Local Wrangler reports not authenticated. Staging/production secrets are not configured; Worker-to-Neon and public API/game routes cannot be verified. Authenticate Wrangler with `wrangler login` in the project workspace and restore access to the existing Cloudflare zone.
 - Staging Wrangler configuration sets `routes: []` to prevent inheritance of production custom domains; repeat staging dry run passed without that warning.
 
 ## Provider configuration
@@ -22,13 +22,12 @@ Updated: 2026-10-02
 - Source audit found the seeded server run is not consumed by game logic; multiple map/vehicle/obstacle sources use Math.random and movement/collisions are frame-dependent. Replacing this with a simplified simulator would violate the guide; port/refactor the actual transitions before enabling replay.
 - Quest definitions and claim logic exist, but no event updates quest progress/completion. Referral qualification and signed MyLead conversion callbacks are absent.
 - Expo web export succeeded via installed Expo CLI; repository `expo lint` wrapper expects Bun, which is unavailable locally. Direct ESLint reports 0 errors and 68 warnings.
-- Alternate npm dependency resolution reports 42 audit findings (1 critical, 18 high, 22 moderate, 1 low); audit canonical Bun-lockfile dependencies before production game delivery.
+- Alternate npm dependency resolution reports 42 audit findings (1 critical, 18 high, 22 moderate, 1 low); CI now audits canonical `games/expo-crossy-road/bun.lock`, pending the updated workflow run.
 - Owner says the Expo license is confirmed; license/source asset rights were not independently verified. Verify before commercial game/ad deployment.
-- No Worker staging smoke test, browser E2E, or API/game production deployment has occurred. Pages production build/deploy has succeeded, but CUA browser startup failed and custom-domain content was not independently fetched.
-- Connected Cloudflare zone query returned no `dashcup.com` zone; no Worker is present. Staging deployment requires Wrangler CLI authentication (`wrangler login`) and active zone/account access. User action: authenticate Wrangler in the workspace, then staging deployment can proceed; DNS delegation must also finish before custom domains can validate.
+- No Worker staging smoke test, browser E2E, or API/game production deployment has occurred. Pages production build/deploy and `www.dashcup.com` HTTP 200 have been verified. CUA browser startup failed.
+- Connected Cloudflare zone query returned no `dashcup.com` zone; no Worker is present. Staging deployment requires Wrangler CLI authentication (`wrangler login`) and access to the existing zone in this account. User action: authenticate Wrangler in the workspace and restore/check zone access; the Pages hostname itself is now active.
 
 ## Personal actions
-- Complete BigRock delegation and wait until Cloudflare reports active; ensure www.dashcup.com has the Pages CNAME Cloudflare requests.
-- Authenticate Wrangler for this Cloudflare account (or provide a permitted deployment credential through the workspace's secret mechanism), then configure Worker staging secrets and deploy/test staging before production.
+- Authenticate Wrangler for this Cloudflare account, then configure Worker staging secrets and deploy/test staging before production. Ensure the existing dashcup.com zone is visible to the connected Cloudflare account; do not create a duplicate zone.
 - Add/verify the Resend sending domain and its DNS records later.
 - Provide MyLead callback signing/configuration and Hilltop placement ID if those products should serve ads/offers.
