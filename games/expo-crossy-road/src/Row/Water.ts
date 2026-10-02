@@ -1,4 +1,4 @@
-import { Power2, TweenMax } from "gsap";
+import { Power2, TweenLite, TweenMax } from "gsap";
 import { Object3D, Box3 } from "three";
 
 import ModelLoader from "../ModelLoader";

@@ -1,4 +1,4 @@
-import { TweenMax } from "gsap";
+import { TweenLite, TweenMax } from "gsap";
 import { Object3D, Box3 } from "three";
 
 import AudioManager from "../AudioManager";

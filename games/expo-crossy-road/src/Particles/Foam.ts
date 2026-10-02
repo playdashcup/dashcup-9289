@@ -1,4 +1,4 @@
-import { Bounce, Power2, TweenMax } from "gsap";
+import { Bounce, Power2, TweenLite, TweenMax } from "gsap";
 import {
   MeshPhongMaterial,
   DoubleSide,

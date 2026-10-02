@@ -1,5 +1,6 @@
 import { Group } from "three";
 import { utils } from "expo-three";
+import { Bounce, Power1, TimelineMax, TweenLite, TweenMax } from "gsap";
 import {
   BASE_ANIMATION_TIME,
   groundLevel,
@@ -8,8 +9,6 @@ import {
   startingRow,
 } from "./GameSettings";
 import ModelLoader from "./ModelLoader";
-// import { TimelineMax } from "@tweenjs/tween.js";
-
 const normalizeAngle = (angle) => {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
 };
