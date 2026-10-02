@@ -100,3 +100,10 @@ Updated: 2026-10-02
 - The game still makes one API request at start and one bounded request at end; iframe readiness retries use only same-page `postMessage`, with no network/polling calls.
 - Trophy wallet and active-cycle leaderboard credits now share the existing game-end SQL statement with run consumption and quest/referral progression. No additional Worker invocation or schema migration was added.
 - Quest claim feedback uses local CSS/Web Audio and adds zero provider, Worker, or Neon calls.
+
+## Post-release resource check (2026-10-02)
+
+- Pages commit `19e1a7e` and Worker version `b38fe224-1a9f-4c2d-b319-6f1abd253587` are live. No architecture resource was added.
+- Active play adds no network calls: handshake retries are iframe `postMessage`. Session lifecycle remains one start request and one end request.
+- Game score wallet credit, leaderboard upsert, quest/referral changes and one-use run consumption share the existing end SQL statement. Staging score/leaderboard request confirmed 1→1. Quest animation/audio is local-only.
+- No workload/cost benchmark or production synthetic scoring test was run.

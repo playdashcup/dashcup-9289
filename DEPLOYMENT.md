@@ -138,3 +138,10 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - Staging Neon flow passed: bootstrap/start/end 200; score 1 awarded one trophy; duplicate end returned 409.
 - Production Worker and existing Pages project have not yet received this continuation. Frontend lint/build and Worker tests/typecheck/dry-runs pass locally.
 - The app favicon/header logo now use `public/dashcup-logo/logo-icon.svg` and `logo.svg`; the transparent logo pack is also downloadable as a ZIP.
+
+## Production release (2026-10-02)
+
+- Production commit `19e1a7e60811a33107bd7f34d56444723d2b53df` is pushed; Pages deployment `86422c0b-89b7-4332-b6bc-65a656a05b84` from the existing `dashcup-9289` project serves the new logo and UI.
+- Production Worker version `b38fe224-1a9f-4c2d-b319-6f1abd253587` serves the existing API and game custom domains. Health/Neon, game asset, CORS allow/deny, apex redirect and anonymous start denial were checked live.
+- The current production game host bundle contains `dashcup:ping`, `dashcup:ready` and apex origin support. Staging checked score award/leaderboard and duplicate run rejection.
+- Browser E2E is not verified: Brave can render the page via `--dump-dom`, while CDP startup exits with `Multiple targets are not supported in headless mode`.

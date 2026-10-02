@@ -112,3 +112,10 @@ Audit date: 2026-10-02
 - Expo export now handles both `https://dashcup.com` and `https://www.dashcup.com`, and answers parent `dashcup:ping` with `dashcup:ready` to avoid one-shot startup races.
 - New assets under `public/dashcup-logo/` include a self-contained SVG lockup/icon, transparent PNG lockup/icon, and ZIP. Header and site icon reference them.
 - Staging test: API bootstrap/start/end accepted score 1 with 1 trophy; reusing the run returned 409. Browser-driven gameplay is not yet verified.
+
+## Live release source check (2026-10-02)
+
+- Source commit `19e1a7e60811a33107bd7f34d56444723d2b53df` is on `origin/codex/dashcup-rebuild`; Cloudflare Pages deployment `86422c0b-89b7-4332-b6bc-65a656a05b84` serves the new DASHCUP logo.
+- Existing Worker production version is `b38fe224-1a9f-4c2d-b319-6f1abd253587`; its game assets include the Expo origin and handshake fix. API health/Neon, CORS, anonymous start rejection, logo resources and game asset checks passed.
+- The linked Three.js fork was inspected but the user’s already integrated Expo game remains unchanged as gameplay source.
+- Browser click-through and loss-screen gameplay were not verified interactively because headless CDP startup is blocked by the installed Brave build’s `Multiple targets are not supported` error.

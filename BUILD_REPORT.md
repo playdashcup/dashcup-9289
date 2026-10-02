@@ -161,3 +161,13 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Exported updated existing Expo assets to `server/game-dist`; no replacement game was integrated.
 - Staging version `c17e0fac-6b50-4871-89c9-5ce62d60dd3f` deployed and passed live Worker/Neon score and replay-protection smoke. Production deployment is still pending.
 - DASHCUP logo lockup/icon have SVG and PNG variants, a ZIP bundle, and website header/favicon integration under `public/dashcup-logo/`.
+
+## Production release verification (2026-10-02)
+
+- Commit `19e1a7e60811a33107bd7f34d56444723d2b53df` is pushed to `origin/codex/dashcup-rebuild`; working tree was clean after commit.
+- Existing Pages project `dashcup-9289` deployed commit `19e1a7e` as `86422c0b-89b7-4332-b6bc-65a656a05b84`. `www.dashcup.com` serves the new header logo; apex redirects to www. Manifest icon paths and logo SVG/ZIP return 200.
+- Production Worker `dashcup-9289` version `b38fe224-1a9f-4c2d-b319-6f1abd253587` is active on the existing `api.dashcup.com` and `game.dashcup.com` custom domains. API health reports Neon connected; game HTML and the refreshed ping/apex-compatible Expo bundle return 200.
+- Production CORS preflight allows `www.dashcup.com` and rejects `evil.example` with 403. Anonymous `/api/game/start` remains CSRF denied (403).
+- Staging confirmed score 1 → 1 trophy and active leaderboard +1; replay submission returns 409. No production score was injected for testing.
+- Interactive browser E2E is still unverified. Brave `--dump-dom` confirmed production HTML rendering, but remote debugging startup exits with `Multiple targets are not supported in headless mode`; no click-through gameplay result is claimed.
+- The 5x button is only rendered after an accepted game end and remains disabled until trusted rewarded-ad verification exists. Resend, MyLead, Hilltop rewards remain disabled.

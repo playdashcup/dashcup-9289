@@ -116,3 +116,9 @@ Updated: 2026-10-02
 - This is practical anti-tamper filtering. The server does not reproduce the game or prove the exact client score. UI/API wording says `plausibility_checked`.
 - A used run cannot be replayed; staging returned 409 for duplicate end submission. Rewarded-ad 5x stays disabled and cannot affect wallet totals.
 - The iframe allows only the existing apex/www/staging/local parent origins, validates both source window and origin, and recovers from missed readiness messages with bounded local ping retries.
+
+## Production game protections (2026-10-02)
+
+- Production Worker version `b38fe224-1a9f-4c2d-b319-6f1abd253587` is serving the existing API/game domains. Live checks returned API health 200 with Neon connected, game asset 200, CORS allowed site origin and rejected unlisted origin, anonymous start 403.
+- Stage integration showed score 1 produces one wallet trophy and one active-cycle leaderboard point; a replayed end token returns 409. This confirms practical plausibility filtering and duplicate protection; deterministic server score reproduction is not implemented or claimed.
+- `GAME_REPLAY_ENABLED=false`; rewarded-ad payouts, Resend delivery and provider rewards remain disabled.

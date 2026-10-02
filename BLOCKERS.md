@@ -132,3 +132,11 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Quest claims have a brief sound and reduced-motion-aware celebration. New DASHCUP logo assets are in `public/dashcup-logo/` and the header uses the SVG lockup.
 - Staging Worker `c17e0fac-6b50-4871-89c9-5ce62d60dd3f` passed Neon-backed score 1 → trophy 1 and duplicate-run rejection (409). Production Worker and Pages publication are pending this commit.
 - Frontend lint/build, Worker typecheck/tests, and Wrangler dry-runs passed. Browser E2E remains pending; Chrome/Brave are installed, so a CDP smoke attempt can follow publication.
+
+## Production deployment verification (2026-10-02)
+
+- Pushed commit: `19e1a7e60811a33107bd7f34d56444723d2b53df` (`codex/dashcup-rebuild`).
+- Existing Pages project `dashcup-9289`: production deployment `86422c0b-89b7-4332-b6bc-65a656a05b84`; live site serves logo assets and refreshed UI.
+- Existing Worker `dashcup-9289`: version `b38fe224-1a9f-4c2d-b319-6f1abd253587`; existing API/game domains confirmed active.
+- Health + Neon, game asset and handshake bundle, CORS allow/deny, apex redirect, and anonymous mutation denial passed. Staging proved 1:1 score trophies, leaderboard update and 409 duplicate-run protection.
+- Browser E2E remains unverified because installed Brave starts for `--dump-dom`, but remote debugging startup exits with `Multiple targets are not supported in headless mode`.
