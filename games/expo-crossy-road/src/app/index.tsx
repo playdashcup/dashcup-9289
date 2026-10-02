@@ -19,6 +19,7 @@ import GameOverScreen from "@/screens/GameOverScreen";
 import HomeScreen from "@/screens/HomeScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import GameContext from "@/context/GameContext";
+import AudioManager from "@/AudioManager";
 
 const DEBUG_CAMERA_CONTROLS = false;
 
@@ -207,7 +208,8 @@ class Game extends Component {
     this.engine.init();
   };
 
-  onSwipe = (gestureName) => {
+  onSwipe = (gestureName, userGesture = false) => {
+    if (userGesture) AudioManager.unlockForUserGesture();
     if (this.dashcupRun && this.dashcupParentOrigin && this.dashcupInputs.length < 2000) {
       const directions = {
         [swipeDirections.SWIPE_UP]: "SWIPE_UP",
@@ -368,11 +370,11 @@ const GestureView = ({ onStartGesture, onSwipe, ...props }) => {
         onStartGesture();
       }}
       onSwipe={(direction) => {
-        onSwipe(direction);
+        onSwipe(direction, true);
       }}
       config={config}
       onTap={() => {
-        onSwipe(swipeDirections.SWIPE_UP);
+        onSwipe(swipeDirections.SWIPE_UP, true);
       }}
       style={{ flex: 1 }}
       {...props}

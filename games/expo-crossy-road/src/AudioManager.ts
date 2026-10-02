@@ -1,4 +1,5 @@
 import { createAudioPlayer, AudioPlayer } from "expo-audio";
+import { Platform } from "react-native";
 import AudioFiles from "./Audio";
 
 // Web audio is enabled for ChickenDash; playback remains gesture-triggered and slightly softened below.
@@ -8,6 +9,12 @@ class AudioManager {
   sounds = AudioFiles;
 
   audioFileMoveIndex = 0;
+
+  webAudioUnlocked = Platform.OS !== "web";
+
+  unlockForUserGesture = () => {
+    this.webAudioUnlocked = true;
+  };
 
   playMoveSound = async () => {
     await this.playAsync(
@@ -62,7 +69,7 @@ class AudioManager {
   };
 
   playAsync = async (soundObject: number) => {
-    if (MUTED) return;
+    if (MUTED || (Platform.OS === "web" && !this.webAudioUnlocked)) return;
 
     let player = await this.getIdleSoundAsync(soundObject);
     if (!player) {
