@@ -62,11 +62,11 @@ async function verifyResendSignature(secret: string, eventId: string, timestamp:
   const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const signed = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${eventId}.${timestamp}.${payload}`))
   const expected = btoa(String.fromCharCode(...new Uint8Array(signed)))
-  return signatureHeader.split(' ').some((signature) => {
+  for (const signature of signatureHeader.split(' ')) {
     const [version, value] = signature.split(',', 2)
-    if (version !== 'v1' || !value || value.length !== expected.length) return false
-    return constantTimeStringEqual(expected, value)
-  })
+    if (version === 'v1' && value && await constantTimeStringEqual(expected, value)) return true
+  }
+  return false
 }
 
 app.use('/api/*', async (c, next) => {
@@ -491,7 +491,7 @@ app.post('/api/admin/rewards/import', async (c) => {
   if (!adminToken || !supplied) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
   const expectedHash = await sha256(adminToken)
   const suppliedHash = await sha256(supplied)
-  if (!constantTimeStringEqual(expectedHash, suppliedHash)) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  if (!await constantTimeStringEqual(expectedHash, suppliedHash)) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
   if (!c.env.REWARD_ENCRYPTION_KEY) return c.json({ error: 'Reward encryption is not configured.', code: 'REWARD_CONFIG_MISSING' }, 503)
   const body = await c.req.json().catch(() => null) as { rewardType?: unknown; codes?: unknown } | null
   const choices = new Set<RewardType>(['robux', 'freefire', 'vbucks', 'pubg', 'cod'])

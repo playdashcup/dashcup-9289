@@ -6,13 +6,14 @@ Audit date: 2026-10-02
 - Next.js 16 App Router and React 19 v0 dashboard is the frontend/design source; static export is configured for Cloudflare Pages.
 - public/f50aae93c5fae9b355c1.txt contains the user-provided Hilltop verification token.
 - public/sw.js contains the supplied Monetag service-worker settings, Dashcup shell cache, and explicit API/cross-origin request bypass.
-- Cloudflare Pages production deployment for source commit a09430c0007e2392a17a0d33d6805e9a6cd76e65 succeeded at https://159c952c.dashcup-9289.pages.dev. The www custom domain is pending its CNAME check.
+- Cloudflare Pages production deployment for source commit c6bfd537acce242cf3fff6d250178ada5166ec06 succeeded at https://5ac89a0f.dashcup-9289.pages.dev. The www custom domain is pending its CNAME check.
 
 ## Game
 - Expo Crossy Road vendored at games/expo-crossy-road with upstream source, README, Bun lock and license.
 - Source altered for ChickenDash title, warm material tint, slightly reduced sound playback volume, browser audio enablement and the DASHCUP postMessage bridge.
 - Current Expo web export rebuilt successfully into server/game-dist (2.22 MB JavaScript bundle).
 - Direct ESLint reported 0 errors and 68 warnings. Alternate npm dependency resolution reported 42 audit findings; canonical Bun-lockfile audit remains pending.
+- Worker request handlers cap API bodies at 128 KB and Resend webhook payloads at 64 KB; security digest/signature comparisons use a non-short-circuiting comparison helper.
 - Scoreboard remains in the Expo UI. The website passes a server-issued run ID, token, and seed; the iframe validates parent origin/source. The client seed is stored but not passed into Engine or consumed by game logic. No second client run ID is generated. Scores remain pending and award no trophies.
 - Random gameplay generation occurs in CrossyGame row type selection, Grass obstacle generation, static/dynamic Water layouts and velocities, Road vehicle count/direction/speed/gaps, Railroad train sizing, and random model selection. CrossyPlayer collision rotations and AudioManager choices also use Math.random. Movement/collision updates advance per render frame; dt is ignored, while movement animation is GSAP-time based. The current event log is insufficient for deterministic server reproduction.
 - Structural evidence validation bounds a claimed score by the recorded number of SWIPE_UP inputs, based on the engine's row-score rule. This is a plausibility check only and does not make client scores authoritative.

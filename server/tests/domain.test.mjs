@@ -8,10 +8,18 @@ import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '
 import { rewardEmailTemplate } from '../src/email/reward-template.ts'
 import { sendRewardEmail } from '../src/email/resend.ts'
 
-test('compares security digests across all characters and rejects unequal lengths', () => {
-  assert.equal(constantTimeStringEqual('a'.repeat(64), 'a'.repeat(64)), true)
-  assert.equal(constantTimeStringEqual('a'.repeat(64), `${'a'.repeat(63)}b`), false)
-  assert.equal(constantTimeStringEqual('a'.repeat(64), 'a'.repeat(63)), false)
+test('hashes both strings to fixed-size inputs before timing-safe comparison', async () => {
+  const comparisons = []
+  const compare = (left, right) => {
+    comparisons.push([left.byteLength, right.byteLength])
+    let difference = 0
+    for (let index = 0; index < left.byteLength; index += 1) difference |= left[index] ^ right[index]
+    return difference === 0
+  }
+
+  assert.equal(await constantTimeStringEqual('secret', 'secret', compare), true)
+  assert.equal(await constantTimeStringEqual('secret', 'a much longer secret', compare), false)
+  assert.deepEqual(comparisons, [[32, 32], [32, 32]])
 })
 
 test('caps streamed request bodies before JSON handlers receive them', async () => {
