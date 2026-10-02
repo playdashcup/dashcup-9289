@@ -140,3 +140,24 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Production Worker remains `6eb7c18a-cedc-4382-846a-43b0733a7718`; no Worker, database, or game asset was rebuilt for this frontend publish. The apex redirect is a zone redirect rule.
 - Bun 1.4.2 audit was rerun against the canonical Expo lock: 8 advisories (2 image-size high, 5 node-forge high, 1 uuid moderate). `bun audit fix --dry-run` fixed 0/8 because image-size/uuid updates exceed dependency ranges and node-forge has no fix available to Bun's audit resolver. No lockfile changes were made.
 - Browser E2E remains unverified: Playwright is absent from the project and desktop browser startup previously failed with the ACL error. The live click-to-start sequence is not claimed as browser-tested.
+
+## Game launch, trophy scoring, quest feedback, and logo — 2026-10-02
+
+- Fixed the iframe origin handshake for both `https://dashcup.com` and `https://www.dashcup.com`. The parent retries `dashcup:ping` locally until the game replies ready; startup now has a 12-second recovery state even after readiness. Ping messages do not create API requests.
+- Re-exported the existing Expo Crossy Road source to the existing Worker asset directory. The game remains the same project and existing scoreboard; no new game implementation was substituted.
+- A newly consumed run that passes evidence plausibility checks awards one trophy per accepted score point and adds those trophies to the active 14-day leaderboard. The wallet and leaderboard updates happen atomically in the existing game-end statement. This is practical evidence validation, not perfect server reproduction.
+- The end screen shows the score, trophy amount, Retry, and a disabled `5x Reward` choice. It appears only after a successful game-end response. Ad multipliers remain disabled pending trusted SDK completion verification.
+- Quest claims now play a short Web Audio chime and animate the claimed card/trophy; the effect honors reduced-motion settings and makes no network calls.
+- Created DASHCUP chicken lockup/icon SVGs, PNGs and a downloadable ZIP, and placed the lockup in the existing website header.
+- Staging Worker version `c17e0fac-6b50-4871-89c9-5ce62d60dd3f` passed a real Neon-backed flow: bootstrap 200, start 200, score 1 end 200 with one trophy (0 before, 1 after), and duplicate end 409. This staging run is a smoke check, not browser E2E.
+- Frontend lint/build, Worker tests 12/12, Worker typecheck, and production/staging Wrangler dry-runs passed. Production promotion and Pages publication are pending this change being committed and pushed; browser E2E is not yet verified.
+
+## Current implementation update (2026-10-02)
+
+- Repaired the game iframe handshake: apex + www origin allowlist, ping/ready retry, and bounded startup timeout. No API polling or gameplay traffic was added.
+- Game end now credits a plausibility-checked score as trophies at 1:1 and updates the active bi-weekly leaderboard in the same database statement. Staging confirms a score of 1 increments the wallet by 1; reuse is rejected with 409. Client claims are still plausibility checked, not perfectly reproduced.
+- Loss UI shows Retry and disabled `5x Reward`; no multiplier payout is possible without trusted rewarded-ad verification.
+- Quest claims now play a short Web Audio chime and animate the trophy/card, with reduced-motion support.
+- Exported updated existing Expo assets to `server/game-dist`; no replacement game was integrated.
+- Staging version `c17e0fac-6b50-4871-89c9-5ce62d60dd3f` deployed and passed live Worker/Neon score and replay-protection smoke. Production deployment is still pending.
+- DASHCUP logo lockup/icon have SVG and PNG variants, a ZIP bundle, and website header/favicon integration under `public/dashcup-logo/`.

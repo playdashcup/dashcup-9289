@@ -123,3 +123,12 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Production Worker remains `6eb7c18a-cedc-4382-846a-43b0733a7718`; no Worker, database, or game asset was rebuilt for this frontend publish. The apex redirect is a zone redirect rule.
 - Bun 1.4.2 audit was rerun against the canonical Expo lock: 8 advisories (2 image-size high, 5 node-forge high, 1 uuid moderate). `bun audit fix --dry-run` fixed 0/8 because image-size/uuid updates exceed dependency ranges and node-forge has no fix available to Bun's audit resolver. No lockfile changes were made.
 - Browser E2E remains unverified: Playwright is absent from the project and desktop browser startup previously failed with the ACL error. The live click-to-start sequence is not claimed as browser-tested.
+
+## Current continuation update (2026-10-02)
+
+- The launcher origin allowlist now includes both apex and www; the iframe sends readiness again when pinged, and the parent retries locally with a 12-second timeout.
+- A score that passes existing evidence plausibility checks now awards 1 trophy per score point and increments the active bi-weekly leaderboard atomically. It is explicitly not deterministic server replay.
+- The post-loss screen offers Retry and a disabled 5x Reward button. Rewarded ads remain disabled without trusted provider completion proof.
+- Quest claims have a brief sound and reduced-motion-aware celebration. New DASHCUP logo assets are in `public/dashcup-logo/` and the header uses the SVG lockup.
+- Staging Worker `c17e0fac-6b50-4871-89c9-5ce62d60dd3f` passed Neon-backed score 1 → trophy 1 and duplicate-run rejection (409). Production Worker and Pages publication are pending this commit.
+- Frontend lint/build, Worker typecheck/tests, and Wrangler dry-runs passed. Browser E2E remains pending; Chrome/Brave are installed, so a CDP smoke attempt can follow publication.

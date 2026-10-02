@@ -26,3 +26,23 @@ html { scroll-behavior: smooth; }
 body { @apply bg-background text-foreground font-sans; background-image: radial-gradient(ellipse at 8% 4%, rgba(255,91,190,.19), transparent 30rem), radial-gradient(ellipse at 92% 12%, rgba(47,225,255,.16), transparent 31rem), radial-gradient(ellipse at 50% 95%, rgba(183,255,82,.09), transparent 34rem), linear-gradient(145deg,#10132d 0%,#171a3b 48%,#10152d 100%); background-attachment: fixed; }
 button, a, input { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, input:focus-visible { outline: 3px solid #fb72c6; outline-offset: 3px; }
+
+@keyframes quest-claim-celebrate {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 224, 112, 0); }
+  38% { transform: scale(1.025); box-shadow: 0 0 30px rgba(255, 224, 112, .3); }
+  70% { transform: scale(.995); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 224, 112, 0); }
+}
+
+@keyframes quest-trophy-pop {
+  0% { transform: scale(.7) rotate(-9deg); }
+  55% { transform: scale(1.22) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.quest-claim-celebrate { animation: quest-claim-celebrate 750ms cubic-bezier(.2,.8,.2,1) both; }
+.quest-trophy-pop { animation: quest-trophy-pop 550ms cubic-bezier(.2,.8,.2,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .quest-claim-celebrate, .quest-trophy-pop { animation: none; }
+}

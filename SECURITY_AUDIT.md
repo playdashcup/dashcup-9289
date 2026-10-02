@@ -1,4 +1,5 @@
 # DASHCUP security audit
+
 Updated: 2026-10-02
 
 ## Present protections
@@ -108,3 +109,10 @@ Updated: 2026-10-02
 - Production Worker remains `6eb7c18a-cedc-4382-846a-43b0733a7718`; no Worker, database, or game asset was rebuilt for this frontend publish. The apex redirect is a zone redirect rule.
 - Bun 1.4.2 audit was rerun against the canonical Expo lock: 8 advisories (2 image-size high, 5 node-forge high, 1 uuid moderate). `bun audit fix --dry-run` fixed 0/8 because image-size/uuid updates exceed dependency ranges and node-forge has no fix available to Bun's audit resolver. No lockfile changes were made.
 - Browser E2E remains unverified: Playwright is absent from the project and desktop browser startup previously failed with the ACL error. The live click-to-start sequence is not claimed as browser-tested.
+
+## Game score and loss-screen security update (2026-10-02)
+
+- Trophy awards use only fresh server-issued run IDs/tokens that pass one-use, expiry, session, CSRF, bounded evidence, timestamp, input, duration, and score plausibility checks. Accepted score points convert 1:1 to trophies in the same transaction as leaderboard accounting.
+- This is practical anti-tamper filtering. The server does not reproduce the game or prove the exact client score. UI/API wording says `plausibility_checked`.
+- A used run cannot be replayed; staging returned 409 for duplicate end submission. Rewarded-ad 5x stays disabled and cannot affect wallet totals.
+- The iframe allows only the existing apex/www/staging/local parent origins, validates both source window and origin, and recovers from missed readiness messages with bounded local ping retries.

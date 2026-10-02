@@ -1,1 +1,1 @@
-{"name":"DASHCUP","short_name":"DASHCUP","start_url":"/","display":"standalone","background_color":"#080a0f","theme_color":"#080a0f","description":"Arcade runs, quests, ranks, and rewards."}
+{"name":"DASHCUP","short_name":"DASHCUP","start_url":"/","display":"standalone","background_color":"#111735","theme_color":"#111735","description":"Arcade runs, quests, ranks, and rewards.","icons":[{"src":"/dashcup-logo/logo-icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/dashcup-logo/logo-icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"}]}

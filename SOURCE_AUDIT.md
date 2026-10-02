@@ -105,3 +105,10 @@ Audit date: 2026-10-02
 - Production Worker remains `6eb7c18a-cedc-4382-846a-43b0733a7718`; no Worker, database, or game asset was rebuilt for this frontend publish. The apex redirect is a zone redirect rule.
 - Bun 1.4.2 audit was rerun against the canonical Expo lock: 8 advisories (2 image-size high, 5 node-forge high, 1 uuid moderate). `bun audit fix --dry-run` fixed 0/8 because image-size/uuid updates exceed dependency ranges and node-forge has no fix available to Bun's audit resolver. No lockfile changes were made.
 - Browser E2E remains unverified: Playwright is absent from the project and desktop browser startup previously failed with the ACL error. The live click-to-start sequence is not claimed as browser-tested.
+
+## Game launch and branding update (2026-10-02)
+
+- The existing Expo Crossy Road source remains the game. The provided `playdashcup/three-js-crossy-road` repository is a separate React Three Fiber fork; it was reviewed but not substituted for the already integrated Expo game.
+- Expo export now handles both `https://dashcup.com` and `https://www.dashcup.com`, and answers parent `dashcup:ping` with `dashcup:ready` to avoid one-shot startup races.
+- New assets under `public/dashcup-logo/` include a self-contained SVG lockup/icon, transparent PNG lockup/icon, and ZIP. Header and site icon reference them.
+- Staging test: API bootstrap/start/end accepted score 1 with 1 trophy; reusing the run returned 409. Browser-driven gameplay is not yet verified.

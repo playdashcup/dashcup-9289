@@ -94,3 +94,9 @@ Updated: 2026-10-02
 - Production Worker remains `6eb7c18a-cedc-4382-846a-43b0733a7718`; no Worker, database, or game asset was rebuilt for this frontend publish. The apex redirect is a zone redirect rule.
 - Bun 1.4.2 audit was rerun against the canonical Expo lock: 8 advisories (2 image-size high, 5 node-forge high, 1 uuid moderate). `bun audit fix --dry-run` fixed 0/8 because image-size/uuid updates exceed dependency ranges and node-forge has no fix available to Bun's audit resolver. No lockfile changes were made.
 - Browser E2E remains unverified: Playwright is absent from the project and desktop browser startup previously failed with the ACL error. The live click-to-start sequence is not claimed as browser-tested.
+
+## Current request cost impact (2026-10-02)
+
+- The game still makes one API request at start and one bounded request at end; iframe readiness retries use only same-page `postMessage`, with no network/polling calls.
+- Trophy wallet and active-cycle leaderboard credits now share the existing game-end SQL statement with run consumption and quest/referral progression. No additional Worker invocation or schema migration was added.
+- Quest claim feedback uses local CSS/Web Audio and adds zero provider, Worker, or Neon calls.

@@ -43,6 +43,10 @@ class Game extends Component {
   onDashcupMessage = (event) => {
     if (event.source !== window.parent || event.origin !== this.dashcupParentOrigin) return;
     const message = event.data;
+    if (message?.type === "dashcup:ping") {
+      window.parent.postMessage({ type: "dashcup:ready" }, this.dashcupParentOrigin);
+      return;
+    }
     if (message?.type !== "dashcup:start" || typeof message.runId !== "string" || typeof message.runToken !== "string" || !Number.isSafeInteger(Number(message.seed))) return;
     this.dashcupRun = { runId: message.runId, runToken: message.runToken, seed: Number(message.seed) };
     this.dashcupInputs = [];
@@ -137,7 +141,7 @@ class Game extends Component {
     Dimensions.addEventListener("change", this.onScreenResize);
     if (Platform.OS === "web" && window.parent !== window) {
       const requestedOrigin = new URLSearchParams(window.location.search).get("parentOrigin");
-      const allowedOrigins = ["https://www.dashcup.com", "https://staging.dashcup.com", "http://localhost:3000"];
+      const allowedOrigins = ["https://dashcup.com", "https://www.dashcup.com", "https://staging.dashcup.com", "http://localhost:3000"];
       if (requestedOrigin && allowedOrigins.includes(requestedOrigin)) {
         this.dashcupParentOrigin = requestedOrigin;
         window.addEventListener("message", this.onDashcupMessage);

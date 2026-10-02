@@ -10,15 +10,25 @@ const GAME_ORIGIN = process.env.NEXT_PUBLIC_GAME_ORIGIN || (process.env.NODE_ENV
 
 type GameState = 'idle' | 'starting' | 'playing' | 'finishing' | 'complete' | 'error'
 
-export function GameBridge({ onComplete }: { onComplete: (state?: EndGameResponse['state']) => void }) {
+export function GameBridge({ onComplete }: { onComplete: (result: EndGameResponse) => void }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const gameReady = useRef(false)
   const runRef = useRef<StartGameResponse | null>(null)
   const inputsRef = useRef<GameInputEvidence[]>([])
   const finishingRunRef = useRef<string | null>(null)
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readyPingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sentStartRunRef = useRef<string | null>(null)
   const [state, setState] = useState<GameState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ score: number; trophies: number } | null>(null)
+
+  const clearHandshake = () => {
+    if (startTimerRef.current) clearTimeout(startTimerRef.current)
+    if (readyPingTimerRef.current) clearInterval(readyPingTimerRef.current)
+    startTimerRef.current = null
+    readyPingTimerRef.current = null
+  }
 
   useLayoutEffect(() => {
     const onMessage = async (event: MessageEvent) => {
@@ -34,11 +44,13 @@ export function GameBridge({ onComplete }: { onComplete: (state?: EndGameRespons
       }
       if (event.data.type === 'dashcup:ready') {
         gameReady.current = true
-        if (activeRun) iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...activeRun }, GAME_ORIGIN)
+        if (activeRun && sentStartRunRef.current !== activeRun.runId) {
+          sentStartRunRef.current = activeRun.runId
+          iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...activeRun }, GAME_ORIGIN)
+        }
       }
       if (event.data.type === 'dashcup:run_started' && activeRun && event.data.runId === activeRun.runId) {
-        if (startTimerRef.current) clearTimeout(startTimerRef.current)
-        startTimerRef.current = null
+        clearHandshake()
         setError(null)
         setState('playing')
       }
@@ -48,31 +60,43 @@ export function GameBridge({ onComplete }: { onComplete: (state?: EndGameRespons
         try {
           // Read the ref only after all earlier postMessage input events have been processed.
           const result = await api.endGame({ runId: activeRun.runId, runToken: activeRun.runToken, clientScore: Number(event.data.clientScore) || 0, durationMs: Number(event.data.durationMs) || 0, inputs: inputsRef.current.slice() })
-          runRef.current = null; setState('complete'); onComplete(result.state)
-        } catch (cause) { setError(cause instanceof Error ? cause.message : 'Run verification failed'); setState('error') }
+          runRef.current = null
+          setResult({ score: result.score ?? 0, trophies: result.trophiesEarned })
+          setState('complete')
+          onComplete(result)
+        } catch (cause) { setError(cause instanceof Error ? cause.message : 'Run checks failed'); setState('error') }
       }
     }
     window.addEventListener('message', onMessage)
     return () => {
       window.removeEventListener('message', onMessage)
-      if (startTimerRef.current) clearTimeout(startTimerRef.current)
+      clearHandshake()
     }
   }, [onComplete])
 
   const start = async () => {
-    setError(null); setState('starting'); inputsRef.current = []; runRef.current = null; finishingRunRef.current = null
+    setError(null); setResult(null); setState('starting'); inputsRef.current = []; runRef.current = null; finishingRunRef.current = null; sentStartRunRef.current = null; clearHandshake()
     try {
       const newRun = await api.startGame(); runRef.current = newRun
-      if (gameReady.current) iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...newRun }, GAME_ORIGIN)
-      if (!gameReady.current) {
-        startTimerRef.current = setTimeout(() => {
-          if (runRef.current?.runId === newRun.runId && state !== 'playing') {
-            setError('ChickenDash is still loading. Refresh the page and try again.')
-            setState('error')
-          }
-        }, 10_000)
+      const sendStart = () => {
+        if (gameReady.current && sentStartRunRef.current !== newRun.runId) {
+          sentStartRunRef.current = newRun.runId
+          iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...newRun }, GAME_ORIGIN)
+        } else if (!gameReady.current) {
+          iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:ping' }, GAME_ORIGIN)
+        }
       }
-    } catch (cause) { if (startTimerRef.current) clearTimeout(startTimerRef.current); setError(cause instanceof Error ? cause.message : 'Could not start a verified run'); setState('error') }
+      sendStart()
+      readyPingTimerRef.current = setInterval(sendStart, 300)
+      startTimerRef.current = setTimeout(() => {
+        if (runRef.current?.runId === newRun.runId) {
+          runRef.current = null
+          clearHandshake()
+          setError('ChickenDash did not respond. Check your connection and try again.')
+          setState('error')
+        }
+      }, 12_000)
+    } catch (cause) { clearHandshake(); setError(cause instanceof Error ? cause.message : 'Could not start a run'); setState('error') }
   }
 
   return (
@@ -92,10 +116,10 @@ export function GameBridge({ onComplete }: { onComplete: (state?: EndGameRespons
         {state !== 'playing' && state !== 'finishing' && <div className="absolute inset-2 z-10 grid place-items-center rounded-2xl bg-[#111633]/80 p-6 text-center backdrop-blur-[2px] sm:inset-3">
           <div>
             <div className="mx-auto mb-4 grid size-16 place-items-center rounded-[1.35rem] border-[3px] border-[#111735] bg-gradient-to-br from-[#ff94d4] to-[#f454b3] text-[#32154a] shadow-[0_6px_0_#a9317a,0_10px_20px_rgba(0,0,0,.3)]"><Play className="ml-1 size-7 fill-current" /></div>
-            <p className="mb-5 text-sm font-semibold text-indigo-100">{state === 'complete' ? 'Run checked! Ready for another round?' : 'Ready to cross?'}</p>
+            {state === 'complete' ? <div className="mb-5"><p className="text-lg font-black uppercase text-white">Run over</p><p className="mt-1 text-sm text-indigo-100">Score <strong className="text-[#c9ff87]">{result?.score.toLocaleString() ?? '0'}</strong><span className="mx-2 text-white/30">·</span><strong className="text-yellow-200">+{result?.trophies.toLocaleString() ?? '0'} trophies</strong></p></div> : <p className="mb-5 text-sm font-semibold text-indigo-100">{state === 'error' ? 'Ready to try again?' : 'Ready to cross?'}</p>}
             <div className="flex flex-wrap justify-center gap-3">
-              <Button onClick={start} disabled={state === 'starting'} className="h-12 rounded-2xl border-[3px] border-[#13213d] bg-gradient-to-b from-[#b9ff70] to-[#81e849] px-7 font-black uppercase tracking-wide text-[#18233a] shadow-[0_5px_0_#397e39] transition hover:-translate-y-0.5 hover:from-[#d0ff98] hover:to-[#96f45d] hover:shadow-[0_7px_0_#397e39] active:translate-y-1 active:shadow-[0_2px_0_#397e39] disabled:opacity-70">{state === 'starting' ? 'Starting…' : state === 'complete' ? <><RotateCcw data-icon="inline-start" /> RESTART</> : 'START'}</Button>
-              <Button disabled title="Rewards are unavailable until a real SDK and trusted server verification are configured" variant="outline" className="h-12 rounded-2xl border-[3px] border-[#392154] bg-gradient-to-b from-[#ffb4e3] to-[#f27ac5] px-5 font-black uppercase tracking-wide text-[#38153d] shadow-[0_5px_0_#9d3c83] disabled:cursor-not-allowed disabled:opacity-75">5x Reward</Button>
+              <Button onClick={start} disabled={state === 'starting'} className="h-12 rounded-2xl border-[3px] border-[#13213d] bg-gradient-to-b from-[#b9ff70] to-[#81e849] px-7 font-black uppercase tracking-wide text-[#18233a] shadow-[0_5px_0_#397e39] transition hover:-translate-y-0.5 hover:from-[#d0ff98] hover:to-[#96f45d] hover:shadow-[0_7px_0_#397e39] active:translate-y-1 active:shadow-[0_2px_0_#397e39] disabled:opacity-70">{state === 'starting' ? 'Starting…' : state === 'complete' ? <><RotateCcw data-icon="inline-start" /> RETRY</> : state === 'error' ? 'TRY AGAIN' : 'START'}</Button>
+              {state === 'complete' && <Button disabled title="Rewarded ads are unavailable until a real SDK and trusted completion verification are configured" variant="outline" className="h-12 rounded-2xl border-[3px] border-[#392154] bg-gradient-to-b from-[#ffb4e3] to-[#f27ac5] px-5 font-black uppercase tracking-wide text-[#38153d] shadow-[0_5px_0_#9d3c83] disabled:cursor-not-allowed disabled:opacity-75">5x Reward</Button>}
             </div>
             {error && <p role="alert" className="mx-auto mt-4 max-w-sm rounded-xl border border-rose-300/30 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100">{error}</p>}
           </div>

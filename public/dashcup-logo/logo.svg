@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 96" role="img" aria-labelledby="title">
+  <title id="title">DASHCUP arcade logo</title>
+  <rect x="4" y="4" width="88" height="88" rx="25" fill="#68e5f3"/>
+  <path d="M24 57 20 45l8 2 3-11 8 5 7-9 8 10c9-2 17 4 18 13h10l-8 9h-8c-4 8-13 12-24 9l-3 9h-5l1-11c-5-3-9-8-11-14Z" fill="#111735"/>
+  <circle cx="57" cy="48" r="2.5" fill="#fff"/>
+  <text x="111" y="64" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="43" font-weight="900" letter-spacing="3">DASHCUP</text>
+</svg>

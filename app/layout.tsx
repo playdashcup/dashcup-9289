@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: 'DASHCUP is an arcade hub for trophies, quests, rankings, and rewards.',
   referrer: 'no-referrer-when-downgrade',
   manifest: '/manifest.webmanifest',
-  icons: { icon: '/icon.svg', apple: '/apple-icon.png' },
+  icons: { icon: '/dashcup-logo/logo-icon.svg', apple: '/dashcup-logo/logo-icon.png' },
 }
 
 export const viewport: Viewport = { colorScheme: 'dark', themeColor: '#111536', userScalable: false }

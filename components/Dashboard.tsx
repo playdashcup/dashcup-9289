@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Image from 'next/image'
 import { api } from '@/lib/api'
 import type { ClaimQuestResponse, EndGameResponse, EligibilityResponse, LeaderboardResponse, MeResponse, Quest, ReferralLinkResponse } from '@/lib/types'
 import { GameBridge } from '@/components/Game/GameBridge'
@@ -50,7 +51,8 @@ export function Dashboard() {
     void Promise.resolve().then(loadData)
   }, [loadData])
 
-  const onGameComplete = useCallback((state?: EndGameResponse['state']) => {
+  const onGameComplete = useCallback((result: EndGameResponse) => {
+    const state = result.state
     if (!state) return
     setMe(state.me)
     setQuests(state.quests)
@@ -74,8 +76,7 @@ export function Dashboard() {
       <header className="sticky top-0 z-20 border-b-2 border-white/10 bg-[#11142f]/85 shadow-[0_5px_0_rgba(8,12,35,.45)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8">
           <button onClick={() => setActive('arcade')} className="flex items-center gap-3" aria-label="Go to DASHCUP arcade">
-            <span className="grid size-10 place-items-center rounded-2xl border-2 border-[#1b1d4a] bg-gradient-to-br from-[#ff92d3] to-[#f752ad] text-lg font-black text-[#321341] shadow-[0_4px_0_#a8327d]">D</span>
-            <span className="font-mono text-base font-black tracking-[.12em] text-white [text-shadow:0_2px_0_#34386a] sm:text-lg sm:tracking-[.14em]">DASHCUP</span>
+            <Image src="/dashcup-logo/logo.svg" alt="DASHCUP" width={160} height={36} priority className="h-9 w-40 object-contain object-left" />
           </button>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1.5 rounded-full border-2 border-[#8c6935] bg-gradient-to-b from-[#ffe687] to-[#ffc84f] px-2.5 py-1.5 font-mono text-xs font-black text-[#412c36] shadow-[0_4px_0_#754931] sm:gap-2 sm:px-3 sm:py-2 sm:text-sm">
