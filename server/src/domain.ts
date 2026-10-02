@@ -1,6 +1,5 @@
 export const MAX_INPUTS = 2_000
 export const MAX_RUN_MS = 180_000
-export const MAX_SCORE_PER_SECOND = 100
 const CYCLE_ANCHOR = Date.parse('2026-01-05T00:00:00.000Z')
 const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 
@@ -30,10 +29,9 @@ export function biweeklyId(now: Date) {
 
 export function validateEvidence(value: { clientScore?: unknown; durationMs?: unknown; inputs?: unknown }) {
   const { clientScore, durationMs, inputs } = value
-  if (!Number.isInteger(clientScore) || Number(clientScore) < 0) return 'INVALID_SCORE'
+  if (!Number.isSafeInteger(clientScore) || Number(clientScore) < 0) return 'INVALID_SCORE'
   if (!Number.isInteger(durationMs) || Number(durationMs) < 1 || Number(durationMs) > MAX_RUN_MS) return 'INVALID_DURATION'
   if (!Array.isArray(inputs) || inputs.length > MAX_INPUTS) return 'INVALID_INPUT_COUNT'
-  if (Number(clientScore) > Math.floor((Number(durationMs) / 1_000) * MAX_SCORE_PER_SECOND)) return 'SCORE_VELOCITY'
   let previousAt = -1
   for (const input of inputs) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) return 'INVALID_INPUT'
@@ -43,5 +41,9 @@ export function validateEvidence(value: { clientScore?: unknown; durationMs?: un
     if (!Number.isInteger(event.at) || Number(event.at) < 0 || Number(event.at) > Number(durationMs) || (previousAt >= 0 && Number(event.at) - previousAt < 50)) return 'INVALID_INPUT_SEQUENCE'
     previousAt = Number(event.at)
   }
+  // In the actual engine, each SWIPE_UP can advance score by at most one;
+  // side/down moves and moving entities never increment the row score.
+  const forwardMoves = inputs.reduce((count, input) => count + ((input as Record<string, unknown>).key === 'SWIPE_UP' ? 1 : 0), 0)
+  if (Number(clientScore) > forwardMoves) return 'SCORE_EXCEEDS_FORWARD_INPUTS'
   return null
 }

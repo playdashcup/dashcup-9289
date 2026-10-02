@@ -13,45 +13,47 @@ type GameState = 'idle' | 'starting' | 'playing' | 'finishing' | 'complete' | 'e
 export function GameBridge({ onComplete }: { onComplete: () => void }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const gameReady = useRef(false)
+  const runRef = useRef<StartGameResponse | null>(null)
+  const inputsRef = useRef<GameInputEvidence[]>([])
+  const finishingRunRef = useRef<string | null>(null)
   const [state, setState] = useState<GameState>('idle')
-  const [run, setRun] = useState<StartGameResponse | null>(null)
-  const [inputs, setInputs] = useState<GameInputEvidence[]>([])
-  const [result, setResult] = useState<{ score: number; trophies: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const onMessage = async (event: MessageEvent) => {
       if (event.origin !== GAME_ORIGIN || event.source !== iframeRef.current?.contentWindow || typeof event.data?.type !== 'string') return
-      if (event.data.type === 'dashcup:input' && run && event.data.runId === run.runId) {
+      const activeRun = runRef.current
+      if (event.data.type === 'dashcup:input' && activeRun && event.data.runId === activeRun.runId) {
         const evidence = event.data.input as GameInputEvidence
         const validKeys = ['SWIPE_UP', 'SWIPE_DOWN', 'SWIPE_LEFT', 'SWIPE_RIGHT']
-        if (inputs.length < 2000 && evidence?.type === 'move' && validKeys.includes(String(evidence.key)) && Number.isInteger(evidence.at) && evidence.at >= 0 && evidence.at <= 180_000) {
+        if (inputsRef.current.length < 2000 && evidence?.type === 'move' && validKeys.includes(String(evidence.key)) && Number.isInteger(evidence.at) && evidence.at >= 0 && evidence.at <= 180_000) {
           const safeEvidence: GameInputEvidence = { type: 'move', key: evidence.key, at: evidence.at }
-          setInputs((current) => current.length < 2000 ? [...current, safeEvidence] : current)
+          inputsRef.current.push(safeEvidence)
         }
       }
       if (event.data.type === 'dashcup:ready') {
         gameReady.current = true
-        if (run) iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...run }, GAME_ORIGIN)
+        if (activeRun) iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...activeRun }, GAME_ORIGIN)
       }
-      if (event.data.type === 'dashcup:run_started' && run && event.data.runId === run.runId) setState('playing')
-      if (event.data.type === 'dashcup:run_finished' && run && event.data.runId === run.runId) {
+      if (event.data.type === 'dashcup:run_started' && activeRun && event.data.runId === activeRun.runId) setState('playing')
+      if (event.data.type === 'dashcup:run_finished' && activeRun && event.data.runId === activeRun.runId && finishingRunRef.current !== activeRun.runId) {
+        finishingRunRef.current = activeRun.runId
         setState('finishing')
         try {
-          const response = await api.endGame({ runId: run.runId, runToken: run.runToken, clientScore: Number(event.data.clientScore) || 0, durationMs: Number(event.data.durationMs) || 0, inputs })
-          if (response.verification === 'verified' && response.awarded) setResult({ score: response.score ?? 0, trophies: response.trophiesEarned })
-          setState('complete'); setRun(null); onComplete()
+          // Read the ref only after all earlier postMessage input events have been processed.
+          await api.endGame({ runId: activeRun.runId, runToken: activeRun.runToken, clientScore: Number(event.data.clientScore) || 0, durationMs: Number(event.data.durationMs) || 0, inputs: inputsRef.current.slice() })
+          runRef.current = null; setState('complete'); onComplete()
         } catch (cause) { setError(cause instanceof Error ? cause.message : 'Run verification failed'); setState('error') }
       }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [inputs, onComplete, run])
+  }, [onComplete])
 
   const start = async () => {
-    setError(null); setResult(null); setState('starting'); setInputs([])
+    setError(null); setState('starting'); inputsRef.current = []; runRef.current = null; finishingRunRef.current = null
     try {
-      const newRun = await api.startGame(); setRun(newRun)
+      const newRun = await api.startGame(); runRef.current = newRun
       if (gameReady.current) iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...newRun }, GAME_ORIGIN)
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not start a verified run'); setState('error') }
   }

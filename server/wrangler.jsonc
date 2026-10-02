@@ -26,6 +26,7 @@
   "env": {
     "staging": {
       "name": "dashcup-9289-staging",
+      "routes": [],
       "vars": {
         "ENVIRONMENT": "staging",
         "ALLOWED_ORIGINS": "https://staging.dashcup.com",

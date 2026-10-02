@@ -26,14 +26,17 @@ test('derives 14-day cycles from the fixed guide anchor', () => {
   assert.equal(biweeklyId(new Date('2026-01-19T00:00:00Z')), '2026-01-19')
 })
 
-test('rejects excessive evidence, duration, score velocity, and malformed moves', () => {
-  const valid = { clientScore: 4, durationMs: 10_000, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 100 }] }
+test('bounds evidence and rejects scores unsupported by the recorded forward inputs', () => {
+  const valid = { clientScore: 4, durationMs: 10_000, inputs: [100, 200, 300, 400].map((at) => ({ type: 'move', key: 'SWIPE_UP', at })) }
   assert.equal(validateEvidence(valid), null)
   assert.equal(validateEvidence({ ...valid, durationMs: 180_001 }), 'INVALID_DURATION')
   assert.equal(validateEvidence({ ...valid, inputs: Array(2_001).fill(valid.inputs[0]) }), 'INVALID_INPUT_COUNT')
-  assert.equal(validateEvidence({ ...valid, clientScore: 2, durationMs: 10 }), 'SCORE_VELOCITY')
+  assert.equal(validateEvidence({ ...valid, clientScore: 5 }), 'SCORE_EXCEEDS_FORWARD_INPUTS')
+  assert.equal(validateEvidence({ ...valid, clientScore: Number.MAX_SAFE_INTEGER + 1 }), 'INVALID_SCORE')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'HACK', at: 0 }] }), 'INVALID_INPUT')
-  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 20 }, { type: 'move', key: 'SWIPE_DOWN', at: 19 }] }), 'INVALID_INPUT_SEQUENCE')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: -1 }] }), 'INVALID_INPUT_SEQUENCE')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 10_001 }] }), 'INVALID_INPUT_SEQUENCE')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 20 }, { type: 'move', key: 'SWIPE_DOWN', at: 69 }] }), 'INVALID_INPUT_SEQUENCE')
 })
 
 test('encrypts reward codes with AES-256-GCM, authenticates category, and fingerprints duplicates', async () => {
