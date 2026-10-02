@@ -48,12 +48,24 @@ class Game extends Component {
       return;
     }
     if (message?.type !== "dashcup:start" || typeof message.runId !== "string" || typeof message.runToken !== "string" || !Number.isSafeInteger(Number(message.seed))) return;
+    // The parent retries until it receives this acknowledgement. A retry for
+    // the active run must acknowledge without resetting the game or evidence.
+    if (this.dashcupRun?.runId === message.runId) {
+      window.parent.postMessage({ type: "dashcup:run_started", runId: message.runId }, this.dashcupParentOrigin);
+      return;
+    }
     this.dashcupRun = { runId: message.runId, runToken: message.runToken, seed: Number(message.seed) };
     this.dashcupInputs = [];
     this.dashcupStartedAt = performance.now();
-    this.setState({ score: 0, gameState: State.Game.none });
-    this.updateWithGameState(State.Game.playing);
-    window.parent.postMessage({ type: "dashcup:run_started", runId: message.runId }, this.dashcupParentOrigin);
+    this.setState({ score: 0 }, () => {
+      try {
+        this.updateWithGameState(State.Game.playing);
+        window.parent.postMessage({ type: "dashcup:run_started", runId: message.runId }, this.dashcupParentOrigin);
+      } catch {
+        this.dashcupRun = null;
+        window.parent.postMessage({ type: "dashcup:run_start_error", runId: message.runId }, this.dashcupParentOrigin);
+      }
+    });
   };
 
   UNSAFE_componentWillReceiveProps(nextProps, nextState) {
@@ -105,7 +117,9 @@ class Game extends Component {
         } else {
           // Coming straight from the menu.
           this.engine._hero.stopIdle();
-          this.onSwipe(swipeDirections.SWIPE_UP);
+          // Wait for React to commit `gameState`. The engine's input guard
+          // reads this.state synchronously and drops moves before that commit.
+          this.setState({ gameState }, () => this.onSwipe(swipeDirections.SWIPE_UP));
         }
 
         break;

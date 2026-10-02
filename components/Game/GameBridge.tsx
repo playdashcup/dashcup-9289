@@ -18,7 +18,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
   const finishingRunRef = useRef<string | null>(null)
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyPingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const sentStartRunRef = useRef<string | null>(null)
+  const acknowledgedRunRef = useRef<string | null>(null)
   const [state, setState] = useState<GameState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ score: number; trophies: number } | null>(null)
@@ -44,15 +44,21 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
       }
       if (event.data.type === 'dashcup:ready') {
         gameReady.current = true
-        if (activeRun && sentStartRunRef.current !== activeRun.runId) {
-          sentStartRunRef.current = activeRun.runId
+        if (activeRun && acknowledgedRunRef.current !== activeRun.runId) {
           iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...activeRun }, GAME_ORIGIN)
         }
       }
       if (event.data.type === 'dashcup:run_started' && activeRun && event.data.runId === activeRun.runId) {
+        acknowledgedRunRef.current = activeRun.runId
         clearHandshake()
         setError(null)
         setState('playing')
+      }
+      if (event.data.type === 'dashcup:run_start_error' && activeRun && event.data.runId === activeRun.runId) {
+        runRef.current = null
+        clearHandshake()
+        setError('ChickenDash could not initialize. Reload the game and try again.')
+        setState('error')
       }
       if (event.data.type === 'dashcup:run_finished' && activeRun && event.data.runId === activeRun.runId && finishingRunRef.current !== activeRun.runId) {
         finishingRunRef.current = activeRun.runId
@@ -75,12 +81,11 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
   }, [onComplete])
 
   const start = async () => {
-    setError(null); setResult(null); setState('starting'); inputsRef.current = []; runRef.current = null; finishingRunRef.current = null; sentStartRunRef.current = null; clearHandshake()
+    setError(null); setResult(null); setState('starting'); inputsRef.current = []; runRef.current = null; finishingRunRef.current = null; acknowledgedRunRef.current = null; clearHandshake()
     try {
       const newRun = await api.startGame(); runRef.current = newRun
       const sendStart = () => {
-        if (gameReady.current && sentStartRunRef.current !== newRun.runId) {
-          sentStartRunRef.current = newRun.runId
+        if (gameReady.current && acknowledgedRunRef.current !== newRun.runId) {
           iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...newRun }, GAME_ORIGIN)
         } else if (!gameReady.current) {
           iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:ping' }, GAME_ORIGIN)

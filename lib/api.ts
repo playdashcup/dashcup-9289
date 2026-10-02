@@ -16,25 +16,37 @@ const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN || (process.env.NODE_ENV =
 let csrfToken: string | null = null
 let bootstrapInFlight: Promise<BootstrapResponse> | null = null
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_ORIGIN}${path}`, {
-    ...init,
-    credentials: 'include',
-    cache: 'no-store',
-    headers: {
-      Accept: 'application/json',
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(init.method && init.method !== 'GET' && csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-      ...init.headers,
-    },
-  })
-  const contentType = response.headers.get('content-type') ?? ''
-  const body = contentType.includes('application/json') ? await response.json() : null
-  if (!response.ok) {
-    const message = body?.message ?? body?.error ?? `Request failed (${response.status})`
-    throw new ApiError(message, response.status, body?.code)
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 15_000): Promise<T> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(`${API_ORIGIN}${path}`, {
+      ...init,
+      signal: init.signal ?? controller.signal,
+      credentials: 'include',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.method && init.method !== 'GET' && csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        ...init.headers,
+      },
+    })
+    const contentType = response.headers.get('content-type') ?? ''
+    const body = contentType.includes('application/json') ? await response.json() : null
+    if (!response.ok) {
+      const message = body?.message ?? body?.error ?? `Request failed (${response.status})`
+      throw new ApiError(message, response.status, body?.code)
+    }
+    return body as T
+  } catch (cause) {
+    if (cause && typeof cause === 'object' && 'name' in cause && cause.name === 'AbortError') {
+      throw new ApiError('The server took too long to respond. Check your connection and try again.', 408, 'REQUEST_TIMEOUT')
+    }
+    throw cause
+  } finally {
+    clearTimeout(timeout)
   }
-  return body as T
 }
 
 export const api = {
@@ -52,7 +64,7 @@ export const api = {
     return pending
   },
   getMe: () => request<MeResponse>('/api/me'),
-  startGame: () => request<StartGameResponse>('/api/game/start', { method: 'POST', body: JSON.stringify({}) }),
+  startGame: () => request<StartGameResponse>('/api/game/start', { method: 'POST', body: JSON.stringify({}) }, 12_000),
   endGame: (payload: EndGamePayload) => request<EndGameResponse>('/api/game/end', { method: 'POST', body: JSON.stringify(payload) }),
   getQuests: () => request<Quest[]>('/api/quests'),
   claimQuest: (questId: string) => request<ClaimQuestResponse>(`/api/quests/${encodeURIComponent(questId)}/claim`, { method: 'POST', body: JSON.stringify({}) }),
