@@ -6,13 +6,13 @@ Audit date: 2026-10-02
 - Next.js 16 App Router and React 19 v0 dashboard is the frontend/design source; static export is configured for Cloudflare Pages.
 - public/f50aae93c5fae9b355c1.txt contains the user-provided Hilltop verification token.
 - public/sw.js contains the supplied Monetag service-worker settings, Dashcup shell cache, and explicit API/cross-origin request bypass.
-- Cloudflare Pages production deployment for source commit 83d2718ce3b260e6801c1315a6efc912ac527066 succeeded at https://54b1f03c.dashcup-9289.pages.dev. The www custom domain and Pages URL both return HTTP 200.
+- Cloudflare Pages production deployment for implementation commit 12c29ff614f9bb997481d1040081491f5d31baa7 succeeded at https://7a56c389.dashcup-9289.pages.dev. The www custom domain and Pages URL both return HTTP 200.
 
 ## Game
 - Expo Crossy Road vendored at games/expo-crossy-road with upstream source, README, Bun lock and license.
 - Source altered for ChickenDash title, warm material tint, slightly reduced sound playback volume, browser audio enablement and the DASHCUP postMessage bridge.
-- Current Expo web export rebuilt successfully into server/game-dist (2.21 MB JavaScript bundle); Expo lint passes with 0 errors and 68 warnings.
-- Canonical Bun audit after safe fixes reports 14 advisories (10 high, 4 moderate): the unused EAS CLI was removed, GSAP upgraded to v3, and 99 advisories fixed; remaining high findings include node-forge (no published safe version), image-size, node-fetch, and PostCSS blocked by dependency ranges. CI's dedicated audit job fails on these findings.
+- Current Expo web export rebuilt successfully into server/game-dist (2.16 MB JavaScript bundle); Expo lint passes with 0 errors and 68 warnings.
+- Canonical Bun audit after safe fixes reports 8 advisories (7 high, 1 moderate): unused EAS CLI removed, GSAP upgraded to v3, 99 findings fixed, and compatible overrides resolve PostCSS, node-fetch, and decode-uri-component. Remaining findings include unpatched node-forge, image-size (2.x breaks Metro export), and uuid. CI's audit job reports these findings.
 - Worker request handlers cap API bodies at 128 KB and Resend webhook payloads at 64 KB; security digest/signature comparisons use a non-short-circuiting comparison helper.
 - Scoreboard remains in the Expo UI. The website passes a server-issued run ID, token, and seed; the iframe validates parent origin/source. The client seed is stored but not passed into Engine or consumed by game logic. No second client run ID is generated. Scores remain pending and award no trophies.
 - Random gameplay generation occurs in CrossyGame row type selection, Grass obstacle generation, static/dynamic Water layouts and velocities, Road vehicle count/direction/speed/gaps, Railroad train sizing, and random model selection. CrossyPlayer collision rotations and AudioManager choices also use Math.random. Movement/collision updates advance per render frame; dt is ignored, while movement animation is GSAP-time based. The current event log is insufficient for deterministic server reproduction.
