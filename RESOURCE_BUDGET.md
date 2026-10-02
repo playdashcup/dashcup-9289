@@ -10,10 +10,10 @@ Updated: 2026-10-02
 
 ## Local measurements
 - Latest Wrangler staging dry run: 303.87 KiB upload, 79.45 KiB gzip; Wrangler read 196 static asset files. Staging config does not claim production custom domains.
-- Frontend build and lint pass; Expo web export pass (2.22 MB JavaScript bundle).
+- Frontend CI build and lint pass; Expo lint/export pass (2.21 MB JavaScript bundle). Canonical Bun audit reports 14 remaining vulnerabilities (10 high, 4 moderate), no critical.
 - Worker unit tests: 10 passing.
 - Current run uses one bounded in-memory reference for move evidence and no per-move React state updates; no new platform resource was added.
-- Alternate local npm dependency resolution for Expo reported 42 audit findings (1 critical, 18 high, 22 moderate, 1 low); CI now runs the canonical Bun-lockfile audit, pending its workflow result.
-- Cloudflare Pages production deployment at https://89448680.dashcup-9289.pages.dev succeeded for source commit c28a7b28765b3c29d1c4f46d42eb0a67e20b5a14. `www.dashcup.com` is active and returns HTTP 200. No Worker is deployed; no production API/game usage has been measured.
+- GitHub CI Worker checks: 10 tests, TypeScript and both Wrangler dry-runs pass. Bun audit job fails on 14 known advisories.
+- Cloudflare Pages production deployment at https://54b1f03c.dashcup-9289.pages.dev succeeded for source commit 83d2718ce3b260e6801c1315a6efc912ac527066. `www.dashcup.com` and Pages URL return HTTP 200. No Worker is deployed; api/game hosts fail DNS lookup; no production API/game usage has been measured.
 - No live cost or provider billing data was retrieved. No cost estimate is asserted.
 - Production usage, Neon compute, Worker requests, Pages bandwidth and email quotas remain unmeasured.

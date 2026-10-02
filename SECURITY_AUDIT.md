@@ -22,5 +22,6 @@ Updated: 2026-10-02
 - Quest catalogue/claim code is present but no server event advances progress or marks quests complete; do not describe quests as end-to-end active.
 - MyLead callback signing and conversion anti-replay are absent. Rewarded-ad success is disabled. Provider scripts/assets were not audited independently; only user-provided Monetag settings are present.
 - Do not configure reward delivery until sender domain, encryption key, admin token, secret storage, domain verification, inventory and a real email test are verified.
-- Alternate npm dependency resolution for the game reported 42 audit findings (1 critical, 18 high, 22 moderate, 1 low). This is not a Bun-lockfile audit; triage the canonical dependency tree before production game delivery.
+- Canonical Bun 1.4.2 audit reports 14 remaining advisories (10 high, 4 moderate, no critical) after fixing 99, removing unused EAS CLI, and upgrading GSAP to v3. High findings include `node-forge` (no published safe version) and Expo-range-constrained `image-size`, `node-fetch`, and PostCSS; the CI audit job is failing and these remain a release gate.
+- GitHub Actions run for 83d2718 passed frontend lint/build and Worker game lint/export, TypeScript, 10 unit tests, and staging/production Wrangler dry-runs. No staging Worker/API/browser E2E has run because no Worker or api/game DNS records are available.
 - Disable-devtool deterrence, obfuscation and CSP policy are not claimed as implemented. These are deterrence measures and do not replace server validation.

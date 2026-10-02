@@ -6,13 +6,13 @@ Audit date: 2026-10-02
 - Next.js 16 App Router and React 19 v0 dashboard is the frontend/design source; static export is configured for Cloudflare Pages.
 - public/f50aae93c5fae9b355c1.txt contains the user-provided Hilltop verification token.
 - public/sw.js contains the supplied Monetag service-worker settings, Dashcup shell cache, and explicit API/cross-origin request bypass.
-- Cloudflare Pages production deployment for source commit c28a7b28765b3c29d1c4f46d42eb0a67e20b5a14 succeeded at https://89448680.dashcup-9289.pages.dev. The www custom domain is active and returns HTTP 200.
+- Cloudflare Pages production deployment for source commit 83d2718ce3b260e6801c1315a6efc912ac527066 succeeded at https://54b1f03c.dashcup-9289.pages.dev. The www custom domain and Pages URL both return HTTP 200.
 
 ## Game
 - Expo Crossy Road vendored at games/expo-crossy-road with upstream source, README, Bun lock and license.
 - Source altered for ChickenDash title, warm material tint, slightly reduced sound playback volume, browser audio enablement and the DASHCUP postMessage bridge.
-- Current Expo web export rebuilt successfully into server/game-dist (2.22 MB JavaScript bundle).
-- Direct ESLint reported 0 errors and 68 warnings. Alternate npm dependency resolution reported 42 audit findings; CI now executes `bun audit` on the canonical Bun lockfile, with result pending.
+- Current Expo web export rebuilt successfully into server/game-dist (2.21 MB JavaScript bundle); Expo lint passes with 0 errors and 68 warnings.
+- Canonical Bun audit after safe fixes reports 14 advisories (10 high, 4 moderate): the unused EAS CLI was removed, GSAP upgraded to v3, and 99 advisories fixed; remaining high findings include node-forge (no published safe version), image-size, node-fetch, and PostCSS blocked by dependency ranges. CI's dedicated audit job fails on these findings.
 - Worker request handlers cap API bodies at 128 KB and Resend webhook payloads at 64 KB; security digest/signature comparisons use a non-short-circuiting comparison helper.
 - Scoreboard remains in the Expo UI. The website passes a server-issued run ID, token, and seed; the iframe validates parent origin/source. The client seed is stored but not passed into Engine or consumed by game logic. No second client run ID is generated. Scores remain pending and award no trophies.
 - Random gameplay generation occurs in CrossyGame row type selection, Grass obstacle generation, static/dynamic Water layouts and velocities, Road vehicle count/direction/speed/gaps, Railroad train sizing, and random model selection. CrossyPlayer collision rotations and AudioManager choices also use Math.random. Movement/collision updates advance per render frame; dt is ignored, while movement animation is GSAP-time based. The current event log is insufficient for deterministic server reproduction.
@@ -25,4 +25,4 @@ Audit date: 2026-10-02
 - Worker architecture serves /api/* and game static assets; no D1, Neon Functions, or second API Worker.
 - Resend client/template are implemented but sending is gated by server secrets and a verified sender. Current Resend inventory lists dashcup.com as not_started; mail.dashcup.com is not listed.
 - MyLead signed conversion callback/account config is not implemented. Monetag user supplied a zone configuration, but live behavior is not independently verified. Hilltop banner placement ID was not provided; no placement is fabricated.
-- Cloudflare API reports no `dashcup.com` zone in the connected account query and no Worker scripts. Pages remains connected and deployed; www is active. Wrangler CLI is unauthenticated.
+- Cloudflare API reports no `dashcup.com` zone in the connected account query and no Worker scripts. Pages remains connected and deployed; www is active. Direct DNS lookup of api.dashcup.com and game.dashcup.com fails. Wrangler CLI is unauthenticated.

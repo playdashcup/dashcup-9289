@@ -3,7 +3,7 @@ Updated: 2026-10-02
 
 ## Repository
 - Source of truth: https://github.com/playdashcup/dashcup-9289, audited from current main at 2a5222980662f416ce4ab064000878a56e26ed3e.
-- Working branch: codex/dashcup-rebuild. Implementation commit: 799d6581af06b1bfd2368d4b7fe0a6ffc52367d8. Latest tested source commit: c28a7b28765b3c29d1c4f46d42eb0a67e20b5a14, pushed and verified on origin.
+- Working branch: codex/dashcup-rebuild. Preserved c28a7b2 history and pushed follow-ups; latest commit 83d2718ce3b260e6801c1315a6efc912ac527066 is on origin.
 - Existing v0 Next.js frontend remains the source of the website design.
 - Expo Crossy Road source is integrated under games/expo-crossy-road and branded ChickenDash. The owner confirmed licensing in chat; bundle redistribution rights have not been independently audited.
 
@@ -21,16 +21,17 @@ Updated: 2026-10-02
 - Worker unit tests: PASS, 10/10 including body-limit streamed request checks, fixed-time comparison, malformed evidence, quest catalog, AES-GCM and Resend idempotency/outcomes.
 - Worker TypeScript: PASS after reward, webhook and inventory changes.
 - Wrangler production and staging dry runs: PASS; each read 196 assets (303.87 KiB / 79.45 KiB gzip). CI now runs both environment dry-runs. An initial staging dry run exposed inherited production domains; `routes: []` is now set in staging and the repeat dry run reports no inherited routes.
-- Expo web export: PASS using Expo CLI; 2.22 MB JavaScript bundle exported to server/game-dist. Direct ESLint: 0 errors, 68 warnings. Expo lint wrapper selects Bun, which is unavailable locally.
+- Expo lint: PASS (0 errors, 68 warnings); Expo web export: PASS, 2.21 MB JavaScript bundle exported to server/game-dist. Bun 1.4.2 was run via npm exec against the canonical Bun lockfile. `bun audit` after safe in-range fixes and EAS CLI removal reports 14 advisories (10 high, 4 moderate; no critical), so the dedicated CI game-audit job fails pending safe resolution/triage.
 - Neon staging: migration versions `0001_initial` and `0002_resend_delivery` confirmed; the expected base schema and delivery-status/webhook tables were verified previously. Production branch is ready but currently has no `schema_migrations` table, so no production schema is deployed.
-- Cloudflare Pages production build and deploy: PASS for source commit c28a7b28765b3c29d1c4f46d42eb0a67e20b5a14 at https://89448680.dashcup-9289.pages.dev. GitHub combined status reports Vercel success for this commit.
+- GitHub Actions run 36978367485: frontend lint/build PASS; Worker Expo lint/export, typecheck, 10/10 tests, staging dry-run, and production dry-run PASS; canonical Bun audit FAIL for 14 advisories. Vercel status PASS.
+- Cloudflare Pages production build and deploy: PASS for source commit 83d2718ce3b260e6801c1315a6efc912ac527066 at https://54b1f03c.dashcup-9289.pages.dev. `www.dashcup.com` is active and both hostnames returned HTTP 200.
 - `www.dashcup.com` is active in Cloudflare Pages and returns HTTP 200 over HTTPS. No API Worker is deployed, so API/game custom domains are not serving this application.
 - GameBridge buffers move evidence synchronously and ignores duplicate finish messages for a run. The server checks claimed score against recorded forward inputs rather than an arbitrary score-per-second ceiling; this remains a plausibility check, not deterministic replay.
-- No browser E2E, Worker staging deployment, or live API endpoint verification has been performed. CUA browser launch exited unexpectedly with the workspace ACL startup error; the game host is not deployed.
+- No browser E2E, Worker staging deployment, or live API endpoint verification has been performed. CUA browser launch exited with the workspace ACL startup error; api.dashcup.com and game.dashcup.com fail DNS lookup, and the game host is not deployed.
 - Source re-audit confirmed the Expo seed is received but unused by gameplay. Random row types, obstacles, cars, trains, logs, model variants, and frame-driven collision/movement transitions remain nondeterministic. `/api/game/end` deliberately records suspicious pending runs and awards zero.
 - Quest catalogue and claim locking exist, but no code updates quest progress/completion. Referral association exists, but referral qualification is absent. Sponsor/PPI/CPA progression remains disabled without signed provider callbacks.
 - Repository README says the vendored source is for educational purposes and says copyrighted game work is used under fair use; LICENSE covers source code. It does not establish redistribution rights for bundled artwork/audio. The owner says licensing is confirmed; that separate permission has not been inspected.
-- Alternate local npm dependency resolution for Expo reported 42 audit findings (1 critical, 18 high, 22 moderate, 1 low); canonical Bun-lockfile audit is now a CI step and its result is pending a run on the updated commit.
+- Canonical Bun audit is not clean: 14 remaining advisories (10 high, 4 moderate). Direct GSAP was upgraded to v3 and 99 issues were removed by safe updates/removing unused EAS CLI. Remaining reports include node-forge with no published safe version, and image-size, node-fetch, and PostCSS blocked by dependency ranges.
 
 ## Deployment
 The Pages production build and `www.dashcup.com` are available and verified. The connected Cloudflare account currently returns no zone for `dashcup.com` and lists no Worker scripts; local Wrangler is unauthenticated. Staging Worker deployment, Worker secrets, quest progression, replay, and staged smoke tests remain outstanding. See DEPLOYMENT.md and BLOCKERS.md.
