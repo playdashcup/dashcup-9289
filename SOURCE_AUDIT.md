@@ -6,7 +6,7 @@ Audit date: 2026-10-02
 - Next.js 16 App Router and React 19 v0 dashboard is the frontend/design source; static export is configured for Cloudflare Pages.
 - public/f50aae93c5fae9b355c1.txt contains the user-provided Hilltop verification token.
 - public/sw.js contains the supplied Monetag service-worker settings, Dashcup shell cache, and explicit API/cross-origin request bypass.
-- Cloudflare Pages production deployment for implementation commit 12c29ff614f9bb997481d1040081491f5d31baa7 succeeded at https://7a56c389.dashcup-9289.pages.dev. The www custom domain and Pages URL both return HTTP 200.
+- Cloudflare Pages latest deployment for HEAD `4867d653ed251b55549aed03b6751cfe5906bbc2` succeeded at https://a5a0728c.dashcup-9289.pages.dev. The `www` CNAME points to the exact Pages project target; public DNS and HTTPS return success.
 
 ## Game
 - Expo Crossy Road vendored at games/expo-crossy-road with upstream source, README, Bun lock and license.
@@ -25,4 +25,4 @@ Audit date: 2026-10-02
 - Worker architecture serves /api/* and game static assets; no D1, Neon Functions, or second API Worker.
 - Resend client/template are implemented but sending is gated by server secrets and a verified sender. Current Resend inventory lists dashcup.com as not_started; mail.dashcup.com is not listed.
 - MyLead signed conversion callback/account config is not implemented. Monetag user supplied a zone configuration, but live behavior is not independently verified. Hilltop banner placement ID was not provided; no placement is fabricated.
-- Cloudflare API reports no `dashcup.com` zone in the connected account query and no Worker scripts. Pages remains connected and deployed; www is active. Direct DNS lookup of api.dashcup.com and game.dashcup.com fails. Wrangler CLI is unauthenticated.
+- Cloudflare API now reports the existing zone active, with the assigned nameservers, and no Worker scripts. Pages remains connected and deployed; `www` DNS/HTTPS are verified. `api.dashcup.com` and `game.dashcup.com` DNS records are absent until the single Worker is deployed. Wrangler CLI is unauthenticated. The apex A record points unproxied to `127.0.0.1` and is not considered a verified site route.

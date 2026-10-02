@@ -9,9 +9,10 @@ Updated: 2026-10-02
 - Staging and production are configured separately in Wrangler; secrets must be set independently.
 
 ## Current verified provider state
-- Cloudflare connection can read the intended account and Pages project dashcup-9289. A fresh GET /zones?name=dashcup.com returned no zones; Worker custom-domain setup needs the existing zone visible in this account. Do not create a duplicate zone or change nameservers from the application.
-- The Pages project is connected to the repository, production branch codex/dashcup-rebuild. Production build/deployment for implementation commit 12c29ff614f9bb997481d1040081491f5d31baa7 succeeded at https://7a56c389.dashcup-9289.pages.dev. Cloudflare reports www.dashcup.com active; direct HTTPS GETs to both the custom domain and Pages URL, `/manifest.webmanifest`, and `/sw.js` returned HTTP 200.
-- The connected account currently lists no dashcup.com zone and no Worker scripts. api.dashcup.com and game.dashcup.com currently fail DNS lookup. Staging explicitly sets `routes: []` so it cannot inherit production custom domains. Restore access to the existing zone and authenticate Wrangler before staging deployment; no duplicate zone was created.
+- The existing `dashcup.com` zone is active in the intended account on `blakely.ns.cloudflare.com` and `norman.ns.cloudflare.com`. Do not create a duplicate zone or change the nameservers from the application.
+- The Pages project is connected to the repository, production branch `codex/dashcup-rebuild`. The latest successful deployment for HEAD `4867d653ed251b55549aed03b6751cfe5906bbc2` is https://a5a0728c.dashcup-9289.pages.dev. A proxied CNAME `www.dashcup.com` → `dashcup-9289.pages.dev` is configured; public DNS resolves and HTTPS returns 200. The manifest and service worker were previously verified with HTTP 200.
+- No Worker scripts are deployed. Local Wrangler is unauthenticated. `api.dashcup.com` and `game.dashcup.com` have no DNS records pending deployment of the single Worker. Staging explicitly sets `routes: []`. Local Worker tests, typecheck, staging dry-run, and production dry-run pass.
+- The apex DNS record is an unproxied A record to `127.0.0.1`; apex routing/redirect is not verified. Do not claim `dashcup.com` itself is serving the site.
 - Neon project bitter-mode-91626896 has ready branches dashcup-staging (br-empty-cherry-b4mxu4la) and dashcup (br-purple-river-b4v27of0). Read-only migration check confirms `0001_initial` and `0002_resend_delivery` on staging. Production has no `schema_migrations` relation yet; do not migrate production until staging Worker gates pass.
 - Resend currently lists only dashcup.com with status not_started; mail.dashcup.com is not listed in the connected account. Reward delivery remains disabled.
 - Configure RESEND_WEBHOOK_SECRET from the Resend webhook signing secret and point it to /webhooks/resend to reconcile provider acceptance and delivery outcomes.
@@ -23,8 +24,8 @@ The code uses the redemption UUID as Resend Idempotency-Key and stores accepted,
 
 ## Before deployment
 1. Keep GitHub branch codex/dashcup-rebuild as Pages production source and verify subsequent documentation-only builds.
-2. Restore/confirm access to the existing dashcup.com zone in the connected Cloudflare account. The Pages custom domain is active; use only Cloudflare-displayed DNS targets for Worker custom domains.
-3. Authenticate Wrangler in the workspace with `wrangler login`. Configure staging Worker secrets and Neon staging pooled DATABASE_URL, deploy staging, then smoke-test health, bootstrap, sessions, CSRF and static game assets.
+2. The existing zone is now active and `www` CNAME is configured. Authenticate Wrangler in the workspace with `wrangler login` or use a securely configured deployment environment. Use only Cloudflare-provided/custom-domain targets.
+3. Configure staging Worker secrets and Neon staging pooled DATABASE_URL, deploy staging, then smoke-test health, bootstrap, sessions, CSRF and static game assets.
 4. Add api/game Worker custom domains after the Worker staging gates pass; validate DNS/TLS and CORS.
 5. Migrate production Neon only after staging verification; set production secrets and deploy production only after gates pass.
 6. Keep replay, ad rewards and reward email disabled unless their trusted provider verification and prerequisites are in place.

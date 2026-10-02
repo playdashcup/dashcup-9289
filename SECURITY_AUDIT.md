@@ -16,12 +16,12 @@ Updated: 2026-10-02
 - Evidence validation rejects a reported score above the input transcript's forward-move count, derived from the current engine's one-row-per-forward-move scoring rule. This does not perform replay verification or award score.
 
 ## Not yet established
-- No independent security review, hostile-input API integration tests, browser cookie/CORS/iframe tests, or deployed smoke tests. Browser automation could not start in this environment; Cloudflare has no deployed Worker/staging endpoint to test.
+- No independent security review, hostile-input API integration tests, browser cookie/CORS/iframe tests, or deployed Worker smoke tests. Browser automation could not start because the CUA trusted Node process exited unexpectedly; Cloudflare has no deployed Worker/staging endpoint to test.
 - GAME_REPLAY_ENABLED has not been enabled; deterministic replay and verified event progression/referral qualification are absent.
 - The server-issued seed is unused by the client engine. Gameplay generation includes random map/obstacle/vehicle/log choices and per-frame movement/collision updates, so the current input transcript cannot establish a reproducible score. This is a hard reward-security gate, not a client UI toggle.
 - Quest catalogue/claim code is present but no server event advances progress or marks quests complete; do not describe quests as end-to-end active.
 - MyLead callback signing and conversion anti-replay are absent. Rewarded-ad success is disabled. Provider scripts/assets were not audited independently; only user-provided Monetag settings are present.
 - Do not configure reward delivery until sender domain, encryption key, admin token, secret storage, domain verification, inventory and a real email test are verified.
 - Canonical Bun 1.4.2 audit reports 8 advisories (7 high, 1 moderate, no critical) after safe updates, compatible overrides, removing unused EAS CLI, and upgrading GSAP to v3. Remaining findings include `node-forge` (no published safe version), Expo Metro's `image-size` 2.x incompatibility, and `uuid`; delivery remains gated pending triage.
-- GitHub Actions run for 83d2718 passed frontend lint/build and Worker game lint/export, TypeScript, 10 unit tests, and staging/production Wrangler dry-runs. No staging Worker/API/browser E2E has run because no Worker or api/game DNS records are available.
+- Current local rerun: frontend lint/build, Worker TypeScript, 10 unit tests, both Wrangler dry-runs, direct game ESLint (0 errors, 68 warnings), and Expo web export pass. Wrangler authentication is absent, so no Worker/API deployment or staging/browser E2E has run. No Worker or api/game DNS records are available.
 - Disable-devtool deterrence, obfuscation and CSP policy are not claimed as implemented. These are deterrence measures and do not replace server validation.
