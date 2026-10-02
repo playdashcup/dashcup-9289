@@ -14,6 +14,6 @@ Updated: 2026-10-02
 - Worker unit tests: 8 passing.
 - Current run uses one bounded in-memory reference for move evidence and no per-move React state updates; no new platform resource was added.
 - Alternate local npm dependency resolution for Expo reported 42 audit findings (1 critical, 18 high, 22 moderate, 1 low); canonical Bun-lockfile audit was not completed.
-- Cloudflare Pages production deployment at https://03300dc7.dashcup-9289.pages.dev succeeded for audit base commit 5d85b8869d1fd04cdc24e512108c703ae8cd236a. No Worker is deployed; no production API/game usage has been measured.
+- Cloudflare Pages production deployment at https://159c952c.dashcup-9289.pages.dev succeeded for source commit a09430c0007e2392a17a0d33d6805e9a6cd76e65. No Worker is deployed; no production API/game usage has been measured.
 - No live cost or provider billing data was retrieved. No cost estimate is asserted.
 - Production usage, Neon compute, Worker requests, Pages bandwidth and email quotas remain unmeasured.

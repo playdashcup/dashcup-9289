@@ -3,11 +3,11 @@ Updated: 2026-10-02
 
 ## Git
 - Work is in C:\Users\RYZEN V\Documents\ChatGPT\dashcup\dashcup-9289-main on codex/dashcup-rebuild, based on main 2a5222980662f416ce4ab064000878a56e26ed3e.
-- Audit began clean at pushed HEAD 5d85b8869d1fd04cdc24e512108c703ae8cd236a; GitHub reported Vercel success. This audit includes a tested GameBridge race fix; its branch commit and Pages build are the next verification steps.
+- Latest tested source commit a09430c0007e2392a17a0d33d6805e9a6cd76e65 is pushed and verified on origin. GitHub reports Vercel success; Cloudflare Pages built and deployed it successfully.
 
 ## Cloudflare
 - Connected Cloudflare API currently returns no dashcup.com zone for the account; Pages project access still works. Its www.dashcup.com domain is pending with “CNAME record not set”. The previously observed zone was pending during the last successful zone query; re-check when account/DNS state changes.
-- Pages production deployment succeeded for audit base HEAD at https://03300dc7.dashcup-9289.pages.dev; production_branch is codex/dashcup-rebuild.
+- Pages production deployment for latest tested source commit succeeded at https://159c952c.dashcup-9289.pages.dev; production_branch is codex/dashcup-rebuild.
 - Worker scripts list is empty. Local Wrangler reports not authenticated. Staging/production secrets are not configured; Worker-to-Neon and public API/game routes cannot be verified.
 - Staging Wrangler configuration sets `routes: []` to prevent inheritance of production custom domains; repeat staging dry run passed without that warning.
 
