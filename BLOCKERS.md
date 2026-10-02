@@ -82,3 +82,10 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Production Worker source is ready for deploy after the passing staging suite. Production Neon already has both existing migrations and 17 tables. Do not change schema for this release update.
 - Remaining: production Worker release/smoke; browser E2E unavailable due CUA startup ACL; canonical Bun audit remains 8 known advisories (7 high, 1 moderate); live frontend still has not received source-only GameBridge button copy because Pages was not redeployed; Resend/ad/provider features remain disabled until verified configuration.
 - Replay is explicitly out of scope as a release blocker. Scores are never described as perfectly server-reproduced.
+
+## Production anti-cheat rollout complete (2026-10-02)
+
+- Existing production Worker now runs practical anti-cheat update `5f3cc03f-e822-415a-a097-36de130f6148`, deployed after staging checks passed. Production health, DB connectivity, allowed/disallowed CORS, no-session rejection, game HTML and full game JS asset are verified.
+- No additional Neon migration was required. `GAME_REPLAY_ENABLED=false`; exact deterministic replay remains out of scope for this release.
+- Remaining release limitations: browser E2E CUA startup ACL; canonical Bun audit 8 known advisories; published Pages was intentionally not rebuilt so its old source UI may not include the newer 5x button text; Resend domain not verified in connected account and sender/API secrets remain disabled; real rewarded-ad/MyLead/Hilltop configs are unavailable.
+- Rate limiting uses Cloudflare's eventually consistent regional binding at 60/min per client IP. A temporary five/min staging exercise produced 429, then the configured sixty/minute value was restored and deployed.

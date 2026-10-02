@@ -62,3 +62,9 @@ Audit date: 2026-10-02
 - Server now checks evidence shape, initial input transition, move ordering/frequency/density, duration, score/input relationship, score velocity, and server-issued run start time. It hashes submitted evidence and flags repeated suspicious payloads while preserving one-use hashed run tokens, expiry, CSRF and session checks.
 - Quest/PB/referral CTE flow remains atomic after plausibility acceptance. Game completion returns `plausibility_checked`; it does not directly award game trophies. Staging referral qualification and progress were exercised.
 - Staging anti-cheat Worker version `49ccb780-68e1-49db-b1bf-0bf43ff832b9` is live with 60/min restored. Production still requires deployment of this update. Pages remains untouched; source UI edits are not yet published.
+
+## Production release note (2026-10-02)
+
+- Existing Worker is updated in production at version `5f3cc03f-e822-415a-a097-36de130f6148`, serving API and Expo game assets on the existing domains.
+- The strengthened evidence checks from this source audit were staged, tested, then deployed. They provide practical anti-cheat, not exact server-side Crossy Road score reconstruction. Replay remains disabled; verified referrals/quests are tied to plausibility-accepted authenticated sessions.
+- Existing Pages output was preserved without rebuild/deploy. Consequently the live frontend may not yet show source-only GameBridge updates such as exact `5x Reward` copy; the Worker/game host itself was verified.

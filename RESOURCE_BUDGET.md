@@ -50,3 +50,9 @@ Updated: 2026-10-02
 - Staging Worker is version `49ccb780-68e1-49db-b1bf-0bf43ff832b9`, with its original rate-limit binding restored to 60 per 60 seconds after a temporary staging-only five/minute exercise that demonstrated HTTP 429.
 - Production config remains 60/min; existing production Worker version `7e3b55c8-c35c-44e9-a204-470e5d91841a` needs the staged code update. Production Neon schema is unchanged.
 - Validation: 11/11 worker tests, Worker typecheck, root lint, production dry-run. Staging smoke confirmed session/CSRF, anomalous score and duration rejection, accepted plausibility-only run, duplicate-run rejection, referral/quest progression, and repeated-suspicious-run logging. Browser E2E remains unavailable.
+
+## Production Worker update (2026-10-02)
+
+- Production Worker version `5f3cc03f-e822-415a-a097-36de130f6148` is live on existing API/game domains. Rate-limit binding is 60 requests/60 seconds per IP; `GAME_REPLAY_ENABLED=false` and reward email stays disabled.
+- Game root and full 2.16 MB Expo JS bundle returned 200; API health and Neon connectivity 200/true. No Pages deployment or new Cloudflare resource was created.
+- Tests after the source update: Worker 11/11, typecheck pass, root lint pass, Wrangler production dry-run pass; staging flow smoke passed before promotion.

@@ -94,3 +94,10 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Staging Worker `dashcup-9289-staging` version `49ccb780-68e1-49db-b1bf-0bf43ff832b9` (60/min restored). Smoke: unauthenticated start 403; bootstrap/session 200; missing-CSRF start 403; impossible score velocity 422; server-duration mismatch 409; plausible run 200; duplicate run 409; referral qualification and quest progression succeeded. Repeated suspicious-evidence reason was observed in staging Neon.
 - Worker tests 11/11, typecheck, root lint and production Wrangler dry-run pass. Browser E2E remains blocked by the previously observed CUA ACL initialization failure.
 - Production Worker still runs version `7e3b55c8-c35c-44e9-a204-470e5d91841a` until the staged anti-cheat update is released. Production migration is already applied. Existing Pages was not rebuilt.
+
+## Production release of practical anti-cheat (2026-10-02)
+
+- Deployed the staged Worker update to the existing production Worker `dashcup-9289`; new production version `5f3cc03f-e822-415a-a097-36de130f6148`. Existing custom domains remain `api.dashcup.com` and `game.dashcup.com`; limiter restored at 60/min. `GAME_REPLAY_ENABLED=false`, reward delivery disabled.
+- Production post-deploy smoke: API health 200 and Neon connected; apex/www credentialed CORS preflight 204; unlisted origin 403; unauthenticated game start 403; game root 200; full 2,162,206-byte Expo JS asset 200. Both game/API HTTPS/TLS custom routes answered through Cloudflare.
+- Production Neon migrations/schema were unchanged. Staging version `49ccb780-68e1-49db-b1bf-0bf43ff832b9` passed the score velocity, duration, replay, referral and quest cases before production.
+- Git implementation is pushed on `codex/dashcup-rebuild`; reports will be committed separately after this release verification. Existing Pages was not rebuilt/deployed.

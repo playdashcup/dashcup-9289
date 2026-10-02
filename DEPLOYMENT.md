@@ -86,3 +86,12 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - No staging or production database schema change was needed for this update. Production Neon migrations remain `0001_initial`, `0002_resend_delivery`.
 - Staging passes worker tests (11/11), typecheck, root lint and Wrangler dry-run. Next step is deploy the same Worker source to the existing production Worker and run read-only health/CORS/game-asset smoke checks. Pages remains unchanged.
 - Deterministic replay is not required. Keep replay flag false and do not call plausibility-checked scores perfect authoritative reconstructions.
+
+## Production anti-cheat Worker release (2026-10-02)
+
+- Deployed existing `dashcup-9289` Worker to custom domains `api.dashcup.com` and `game.dashcup.com`, version `5f3cc03f-e822-415a-a097-36de130f6148`. No second Worker/zone was created.
+- Staging version `49ccb780-68e1-49db-b1bf-0bf43ff832b9` passed practical anti-cheat, session/CSRF, replay protection, quest progression and referral qualification smoke checks before promotion.
+- Production health and Neon connectivity returned 200/true. Apex/www CORS preflights returned 204; unknown origin returned 403; no-session game-start returned 403. Game root returned 200 and full Expo JS asset returned 200 at 2,162,206 bytes. HTTPS routes are live.
+- Production Neon schema remains on already applied migrations `0001_initial` and `0002_resend_delivery`; no additional migration was needed. Replay and reward email flags remain false.
+- Rate limiter restored to 60/min per IP across API routes. Staging-only five/min test produced 429; reverted to 60/min before production.
+- Existing Pages deployment remains untouched by this release; no frontend build or Pages deploy occurred.

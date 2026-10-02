@@ -65,3 +65,10 @@ Updated: 2026-10-02
 - Staging smoke passed accepted plausible run, speed rejection, server duration mismatch, duplicate token, session/CSRF and referral progression. The submit response explicitly says `plausibility_checked` and pays zero immediate game trophies. Exact game-score reproduction is not claimed; replay remains disabled.
 - A global-per-IP Cloudflare rate key prevents path-based key rotation. 429 was observed with a temporary five-per-minute staging configuration; restored staging config is 60/min. This is an eventually consistent regional control, not a global accounting guarantee.
 - The above code is staged only until production deployment. Resend, ad payouts, and provider conversions remain disabled.
+
+## Production anti-cheat rollout verification (2026-10-02)
+
+- Production Worker version `5f3cc03f-e822-415a-a097-36de130f6148` is live on the existing API/game custom domains. Health returned 200 with Neon connected; no-session protected POST returned 403; apex/www preflight 204 and unlisted origin 403.
+- Staged controls were exercised before promotion: plausible run accepted only as `plausibility_checked` with zero direct game trophies; impossible velocity 422; server duration mismatch 409; duplicate run 409; referral quest progressed on accepted run; repeat suspicious evidence logged. No claim of perfect game-score reproduction is made.
+- Cloudflare limiter set at 60/min per-IP across API routes. Temporary staging 5/min returned 429, then staging and production were restored to 60/min. Cloudflare regional counters are eventual/soft and are not a strict global quota.
+- Replay and payout/email remain disabled. No frontend rebuild/deployment occurred.
