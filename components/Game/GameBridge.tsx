@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import type { EndGameResponse, GameInputEvidence, StartGameResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -16,10 +16,11 @@ export function GameBridge({ onComplete }: { onComplete: (state?: EndGameRespons
   const runRef = useRef<StartGameResponse | null>(null)
   const inputsRef = useRef<GameInputEvidence[]>([])
   const finishingRunRef = useRef<string | null>(null)
+  const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [state, setState] = useState<GameState>('idle')
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onMessage = async (event: MessageEvent) => {
       if (event.origin !== GAME_ORIGIN || event.source !== iframeRef.current?.contentWindow || typeof event.data?.type !== 'string') return
       const activeRun = runRef.current
@@ -35,7 +36,12 @@ export function GameBridge({ onComplete }: { onComplete: (state?: EndGameRespons
         gameReady.current = true
         if (activeRun) iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...activeRun }, GAME_ORIGIN)
       }
-      if (event.data.type === 'dashcup:run_started' && activeRun && event.data.runId === activeRun.runId) setState('playing')
+      if (event.data.type === 'dashcup:run_started' && activeRun && event.data.runId === activeRun.runId) {
+        if (startTimerRef.current) clearTimeout(startTimerRef.current)
+        startTimerRef.current = null
+        setError(null)
+        setState('playing')
+      }
       if (event.data.type === 'dashcup:run_finished' && activeRun && event.data.runId === activeRun.runId && finishingRunRef.current !== activeRun.runId) {
         finishingRunRef.current = activeRun.runId
         setState('finishing')
@@ -47,7 +53,10 @@ export function GameBridge({ onComplete }: { onComplete: (state?: EndGameRespons
       }
     }
     window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
+    return () => {
+      window.removeEventListener('message', onMessage)
+      if (startTimerRef.current) clearTimeout(startTimerRef.current)
+    }
   }, [onComplete])
 
   const start = async () => {
@@ -55,8 +64,43 @@ export function GameBridge({ onComplete }: { onComplete: (state?: EndGameRespons
     try {
       const newRun = await api.startGame(); runRef.current = newRun
       if (gameReady.current) iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...newRun }, GAME_ORIGIN)
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not start a verified run'); setState('error') }
+      if (!gameReady.current) {
+        startTimerRef.current = setTimeout(() => {
+          if (runRef.current?.runId === newRun.runId && state !== 'playing') {
+            setError('ChickenDash is still loading. Refresh the page and try again.')
+            setState('error')
+          }
+        }, 10_000)
+      }
+    } catch (cause) { if (startTimerRef.current) clearTimeout(startTimerRef.current); setError(cause instanceof Error ? cause.message : 'Could not start a verified run'); setState('error') }
   }
 
-  return <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035] shadow-2xl shadow-black/20"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4"><div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-cyan-300/10 text-cyan-300"><Gamepad2 className="size-5" /></div><div><h2 className="font-bold text-white">ChickenDash</h2><p className="text-xs text-zinc-500">Scoreboard stays visible; each run gets practical evidence checks.</p></div></div><span className="text-[11px] font-bold uppercase tracking-wider text-amber-200">Evidence checks active</span></div><div className="relative aspect-[4/3] min-h-[260px] bg-[#050609] sm:aspect-video sm:min-h-[300px]"><iframe ref={iframeRef} src={`${GAME_ORIGIN}/?parentOrigin=${encodeURIComponent(typeof window === 'undefined' ? '' : window.location.origin)}`} title="ChickenDash" className="size-full border-0" allow="autoplay; fullscreen" /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(5,6,9,.3))]" />{state !== 'playing' && state !== 'finishing' && <div className="absolute inset-0 grid place-items-center bg-[#050609]/70 p-6 text-center backdrop-blur-[2px]"><div><div className="mx-auto mb-4 grid size-16 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-300"><Play className="ml-1 size-7 fill-current" /></div><p className="mb-4 text-sm text-zinc-400">{state === 'complete' ? 'Run recorded after evidence checks. Client input cannot grant ad rewards.' : 'Ready to cross?'}</p><div className="flex flex-wrap justify-center gap-2"><Button onClick={start} disabled={state === 'starting'} className="h-12 rounded-xl bg-cyan-300 px-6 font-black text-zinc-950 hover:bg-cyan-200">{state === 'starting' ? 'Starting…' : state === 'complete' ? <><RotateCcw data-icon="inline-start" /> RESTART</> : 'START'}</Button><Button disabled title="Rewards are unavailable until a real SDK and trusted server verification are configured" variant="outline" className="h-12 rounded-xl border-white/15 bg-white/5 px-5 font-bold text-zinc-300 disabled:opacity-60">5x Reward</Button></div>{error && <p className="mt-3 text-xs text-red-300">{error}</p>}</div></div>}</div></section>
+  return (
+    <section className="overflow-hidden rounded-[2rem] border-[3px] border-[#78eaff] bg-gradient-to-br from-[#252b59] via-[#171c43] to-[#292052] shadow-[0_12px_0_#090d22,0_24px_55px_rgba(4,7,24,.45)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-white/10 bg-white/[0.045] px-4 py-3 sm:px-5 sm:py-4">
+        <div className="flex items-center gap-3">
+          <div className="grid size-11 place-items-center rounded-2xl border-2 border-[#192047] bg-gradient-to-br from-[#8df7ff] to-[#45cfe9] text-[#182044] shadow-[0_4px_0_#278ca8]"><Gamepad2 className="size-5" /></div>
+          <div><h2 className="text-lg font-black uppercase tracking-wide text-white [text-shadow:0_2px_0_rgba(4,9,35,.7)]">ChickenDash</h2><p className="text-xs text-indigo-100/70">Cross the road. Chase your best.</p></div>
+        </div>
+        <span className="rounded-full border-2 border-[#354065] bg-[#b9ff69]/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#c9ff87] shadow-[0_3px_0_#101832]">Evidence checks active</span>
+      </div>
+      <div className="relative aspect-[4/3] min-h-[260px] bg-[#080c24] p-2 sm:aspect-video sm:min-h-[300px] sm:p-3">
+        <div className="absolute inset-2 overflow-hidden rounded-2xl border-[3px] border-[#111735] bg-[#050609] shadow-[inset_0_0_0_2px_rgba(255,255,255,.08),0_5px_0_#090d20] sm:inset-3">
+          <iframe ref={iframeRef} src={`${GAME_ORIGIN}/?parentOrigin=${encodeURIComponent(typeof window === 'undefined' ? '' : window.location.origin)}`} title="ChickenDash" className="size-full border-0" allow="autoplay; fullscreen" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(5,6,9,.3))]" />
+        </div>
+        {state !== 'playing' && state !== 'finishing' && <div className="absolute inset-2 z-10 grid place-items-center rounded-2xl bg-[#111633]/80 p-6 text-center backdrop-blur-[2px] sm:inset-3">
+          <div>
+            <div className="mx-auto mb-4 grid size-16 place-items-center rounded-[1.35rem] border-[3px] border-[#111735] bg-gradient-to-br from-[#ff94d4] to-[#f454b3] text-[#32154a] shadow-[0_6px_0_#a9317a,0_10px_20px_rgba(0,0,0,.3)]"><Play className="ml-1 size-7 fill-current" /></div>
+            <p className="mb-5 text-sm font-semibold text-indigo-100">{state === 'complete' ? 'Run checked! Ready for another round?' : 'Ready to cross?'}</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button onClick={start} disabled={state === 'starting'} className="h-12 rounded-2xl border-[3px] border-[#13213d] bg-gradient-to-b from-[#b9ff70] to-[#81e849] px-7 font-black uppercase tracking-wide text-[#18233a] shadow-[0_5px_0_#397e39] transition hover:-translate-y-0.5 hover:from-[#d0ff98] hover:to-[#96f45d] hover:shadow-[0_7px_0_#397e39] active:translate-y-1 active:shadow-[0_2px_0_#397e39] disabled:opacity-70">{state === 'starting' ? 'Starting…' : state === 'complete' ? <><RotateCcw data-icon="inline-start" /> RESTART</> : 'START'}</Button>
+              <Button disabled title="Rewards are unavailable until a real SDK and trusted server verification are configured" variant="outline" className="h-12 rounded-2xl border-[3px] border-[#392154] bg-gradient-to-b from-[#ffb4e3] to-[#f27ac5] px-5 font-black uppercase tracking-wide text-[#38153d] shadow-[0_5px_0_#9d3c83] disabled:cursor-not-allowed disabled:opacity-75">5x Reward</Button>
+            </div>
+            {error && <p role="alert" className="mx-auto mt-4 max-w-sm rounded-xl border border-rose-300/30 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100">{error}</p>}
+          </div>
+        </div>}
+      </div>
+    </section>
+  )
 }

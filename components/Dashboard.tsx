@@ -68,17 +68,17 @@ export function Dashboard() {
   const trophyLabel = me?.trophies == null ? '—' : me.trophies.toLocaleString()
 
   return (
-    <div className="min-h-screen bg-[#080a0f] text-zinc-100 selection:bg-cyan-300 selection:text-zinc-950">
+    <div className="min-h-screen text-zinc-100 selection:bg-pink-300 selection:text-indigo-950">
       <ServiceWorker />
       <AntiCheatTelemetry />
-      <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#080a0f]/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-20 border-b-2 border-white/10 bg-[#11142f]/85 shadow-[0_5px_0_rgba(8,12,35,.45)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8">
           <button onClick={() => setActive('arcade')} className="flex items-center gap-3" aria-label="Go to DASHCUP arcade">
-            <span className="grid size-9 place-items-center rounded-xl bg-cyan-300 text-lg font-black text-zinc-950 shadow-[0_0_24px_rgba(103,232,249,.25)]">D</span>
-            <span className="font-mono text-base font-bold tracking-[.12em] text-white sm:text-lg sm:tracking-[.14em]">DASHCUP</span>
+            <span className="grid size-10 place-items-center rounded-2xl border-2 border-[#1b1d4a] bg-gradient-to-br from-[#ff92d3] to-[#f752ad] text-lg font-black text-[#321341] shadow-[0_4px_0_#a8327d]">D</span>
+            <span className="font-mono text-base font-black tracking-[.12em] text-white [text-shadow:0_2px_0_#34386a] sm:text-lg sm:tracking-[.14em]">DASHCUP</span>
           </button>
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1.5 rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2.5 py-1.5 font-mono text-xs font-bold text-yellow-200 sm:gap-2 sm:px-3 sm:py-2 sm:text-sm">
+            <div className="flex items-center gap-1.5 rounded-full border-2 border-[#8c6935] bg-gradient-to-b from-[#ffe687] to-[#ffc84f] px-2.5 py-1.5 font-mono text-xs font-black text-[#412c36] shadow-[0_4px_0_#754931] sm:gap-2 sm:px-3 sm:py-2 sm:text-sm">
               <Trophy className="size-4" aria-hidden="true" /> {trophyLabel}
             </div>
           </div>
@@ -88,18 +88,18 @@ export function Dashboard() {
       <main className="mx-auto max-w-7xl px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pt-7 lg:px-8 lg:pb-10">
         <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[.2em] text-cyan-300">DASHCUP / MEMBER HUB</p>
-            <h1 className="max-w-[18rem] text-2xl font-black leading-tight tracking-tight text-white sm:max-w-none sm:text-4xl">Play sharp. Stack trophies.</h1>
-            <p className="mt-2 max-w-xl text-sm text-zinc-400">A fast lane for arcade runs, daily quests, and rewards worth chasing.</p>
+            <p className="mb-2 inline-flex rounded-full border border-pink-200/20 bg-pink-300/10 px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[.2em] text-pink-200 sm:text-xs">DASHCUP / MEMBER HUB</p>
+            <h1 className="max-w-[19rem] text-3xl font-black leading-[1.05] tracking-tight text-white [text-shadow:0_3px_0_#34386a] sm:max-w-none sm:text-5xl">Play sharp.<br className="sm:hidden" /> Stack trophies.</h1>
+            <p className="mt-3 max-w-xl text-sm font-medium text-indigo-100/75">Take a quick arcade run, hit your daily quests, and climb the ranks.</p>
           </div>
-          <div className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 md:flex">
-            <Zap className="size-4 text-cyan-300" aria-hidden="true" />
-            <span className="text-xs text-zinc-400">Personal best</span>
-            <strong className="font-mono text-sm text-white">{me?.personalBest?.toLocaleString() ?? '—'}</strong>
+          <div className="hidden items-center gap-2 rounded-2xl border-2 border-[#4c4678] bg-gradient-to-br from-[#282d5b] to-[#1d2248] px-4 py-3 shadow-[0_5px_0_#111631] md:flex">
+            <Zap className="size-4 text-[#b9ff70]" aria-hidden="true" />
+            <span className="text-xs font-bold text-indigo-100/70">Personal best</span>
+            <strong className="font-mono text-sm text-[#c7ff8d]">{me?.personalBest?.toLocaleString() ?? '—'}</strong>
           </div>
         </div>
 
-        <nav className="mb-7 hidden gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-1 md:flex" aria-label="Main navigation">
+        <nav className="mb-7 hidden gap-1 rounded-2xl border-2 border-[#32385f] bg-[#171b3d]/85 p-1.5 shadow-[0_5px_0_#0b1027] md:flex" aria-label="Main navigation">
           {sections.map(({ id, label, icon: Icon }) => <NavButton key={id} active={active === id} onClick={() => setActive(id)} label={label} Icon={Icon} />)}
         </nav>
 
@@ -112,7 +112,7 @@ export function Dashboard() {
         </>}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0b0d13]/95 px-2 pb-[calc(.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-[#43466d] bg-[#11142f]/95 px-2 pb-[calc(.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-5px_0_rgba(7,10,28,.4)] backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
         <div className="mx-auto grid max-w-md grid-cols-4 gap-1">{sections.map(({ id, label, icon: Icon }) => <NavButton key={id} active={active === id} onClick={() => setActive(id)} label={label} Icon={Icon} mobile />)}</div>
       </nav>
     </div>
@@ -120,5 +120,5 @@ export function Dashboard() {
 }
 
 function NavButton({ active, onClick, label, Icon, mobile }: { active: boolean; onClick: () => void; label: string; Icon: typeof Gamepad2; mobile?: boolean }) {
-  return <button onClick={onClick} className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${mobile ? 'min-h-12 flex-col gap-1 py-2 text-[10px]' : ''} ${active ? 'bg-cyan-300 text-zinc-950 shadow-[0_0_18px_rgba(103,232,249,.18)]' : 'text-zinc-500 hover:bg-white/5 hover:text-white'}`} aria-current={active ? 'page' : undefined}><Icon className={mobile ? 'size-4' : 'size-4'} aria-hidden="true" />{label}</button>
+  return <button onClick={onClick} className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-black transition ${mobile ? 'min-h-12 flex-col gap-1 py-2 text-[10px]' : ''} ${active ? 'border-2 border-[#172047] bg-gradient-to-b from-[#8af4ff] to-[#5ad8ef] text-[#15203e] shadow-[0_4px_0_#328aa2]' : 'text-indigo-100/65 hover:bg-white/10 hover:text-white'}`} aria-current={active ? 'page' : undefined}><Icon className={mobile ? 'size-4' : 'size-4'} aria-hidden="true" />{label}</button>
 }
