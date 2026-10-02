@@ -7,15 +7,12 @@
   "private": false,
   "scripts": {
     "start": "expo",
-    "predeploy:web": "expo export -p web",
-    "deploy:web": "eas deploy",
     "lint": "expo lint"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-picker/picker": "2.11.1",
     "@tweenjs/tween.js": "^17.2.0",
-    "eas-cli": "^16.28.0",
     "expo": "^54.0.30",
     "expo-asset": "~12.0.12",
     "expo-audio": "~1.1.1",
@@ -26,7 +23,7 @@
     "expo-status-bar": "~3.0.9",
     "expo-three": "^8.0.0",
     "expo-updates": "~29.0.15",
-    "gsap": "^2.0.2",
+    "gsap": "^3.6.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",

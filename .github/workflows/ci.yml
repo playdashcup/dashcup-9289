@@ -9,6 +9,20 @@ permissions:
   contents: read
 
 jobs:
+  game-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install Expo game dependencies
+        run: bun install --frozen-lockfile
+        working-directory: games/expo-crossy-road
+      - name: Audit canonical Expo Bun lockfile
+        run: bun audit
+        working-directory: games/expo-crossy-road
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -46,9 +60,6 @@ jobs:
           bun-version: latest
       - name: Install Expo game dependencies
         run: bun install --frozen-lockfile
-        working-directory: games/expo-crossy-road
-      - name: Audit canonical Expo Bun lockfile
-        run: bun audit
         working-directory: games/expo-crossy-road
       - name: Lint Expo game source
         run: bunx expo lint
