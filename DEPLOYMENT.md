@@ -11,8 +11,8 @@ Updated: 2026-10-02
 ## Current verified provider state
 - Cloudflare account: 942b2fca29931220f4a0c0cc604f28d9. Zone dashcup.com ID 10b93ab72926ae60db40ece4e89ba044 is pending, not active.
 - Cloudflare expects blakely.ns.cloudflare.com and norman.ns.cloudflare.com; its latest observed delegation is dns1.bigrock.in through dns4.bigrock.in. Do not change nameservers from the application.
-- Pages project dashcup-9289 at https://dashcup-9289.pages.dev exists, with no latest deployment. Its production branch still points to the absent codex/dashcup-polish.
-- No Worker script is deployed. Custom API/game domains have not been activated.
+- Pages project dashcup-9289 is connected to the repository, production branch now codex/dashcup-rebuild. Preview deployment for commit 799d6581af06b1bfd2368d4b7fe0a6ffc52367d8 succeeded at https://eecf1003.dashcup-9289.pages.dev. The www.dashcup.com custom domain exists but validation is pending because Cloudflare reports “CNAME record not set”.
+- No Worker script is deployed. api.dashcup.com and game.dashcup.com have not been configured.
 - Neon project bitter-mode-91626896 has ready branches dashcup-staging (br-empty-cherry-b4mxu4la) and dashcup (br-purple-river-b4v27of0). Base schema plus migration 0002 delivery-status/webhook schema are applied and verified on staging only; production schema not verified.
 - Resend currently lists dashcup.com with status not_started. mail.dashcup.com was not present in the current account listing.
 - Configure RESEND_WEBHOOK_SECRET from the Resend webhook signing secret and point it to /webhooks/resend to reconcile provider acceptance and delivery outcomes.

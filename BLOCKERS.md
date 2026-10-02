@@ -3,12 +3,12 @@ Updated: 2026-10-02
 
 ## Git
 - Work is in C:\Users\RYZEN V\Documents\ChatGPT\dashcup\dashcup-9289-main on codex/dashcup-rebuild, based on main 2a5222980662f416ce4ab064000878a56e26ed3e.
-- Changes are uncommitted. Push/commit have not been verified.
+- Branch is pushed to origin. Implementation commit 799d6581af06b1bfd2368d4b7fe0a6ffc52367d8 is verified on the remote.
 - GitHub connector access previously rejected branch creation; retry local push after tests. If denied, repository write authentication is required.
 
 ## Cloudflare
 - Zone status pending; observed DNS is still BigRock. This is the current external blocker to custom-domain activation.
-- Pages exists but has no deployments and references the obsolete codex/dashcup-polish branch. Update after branch push.
+- Pages preview deployment succeeded at https://eecf1003.dashcup-9289.pages.dev and production_branch is set to codex/dashcup-rebuild. www.dashcup.com is pending with CNAME record not set.
 - No Worker deployed. Staging/production secrets are not configured; cannot verify Worker-to-Neon or public routes.
 
 ## Provider configuration

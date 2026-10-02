@@ -3,7 +3,7 @@ Updated: 2026-10-02
 
 ## Repository
 - Source of truth: https://github.com/playdashcup/dashcup-9289, audited from current main at 2a5222980662f416ce4ab064000878a56e26ed3e.
-- Working branch: codex/dashcup-rebuild. All current changes are uncommitted; no commit or push has been verified.
+- Working branch: codex/dashcup-rebuild, pushed to origin. Implementation commit: 799d6581af06b1bfd2368d4b7fe0a6ffc52367d8.
 - Existing v0 Next.js frontend remains the source of the website design.
 - Expo Crossy Road source is integrated under games/expo-crossy-road and branded ChickenDash. The owner confirmed licensing in chat; bundle redistribution rights have not been independently audited.
 
@@ -22,6 +22,7 @@ Updated: 2026-10-02
 - Wrangler deploy dry run: PASS after final Worker/game export; 196 assets read, 300.86 KiB total / 78.70 KiB gzip.
 - Expo web export: PASS using Expo CLI; 2.22 MB JavaScript bundle exported to server/game-dist. Direct ESLint: 0 errors, 68 warnings. Expo lint wrapper selects Bun, which is unavailable locally.
 - Neon staging: 16 base tables plus migration 0002 delivery-status columns and webhook table verified.
+- Cloudflare Pages preview: PASS for commit 799d6581af06b1bfd2368d4b7fe0a6ffc52367d8 at https://eecf1003.dashcup-9289.pages.dev. Production branch is now codex/dashcup-rebuild.
 - No browser E2E, staging deployment, production deployment, or live endpoint verification has been performed.
 - Alternate local npm dependency resolution for Expo reported 42 audit findings (1 critical, 18 high, 22 moderate, 1 low); canonical Bun-lockfile audit remains pending.
 
