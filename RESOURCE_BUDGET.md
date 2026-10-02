@@ -35,3 +35,11 @@ Updated: 2026-10-02
 - Worker tests 11/11, Worker TypeScript check, Wrangler staging dry-run, and frontend lint passed. No frontend production build was run.
 - Canonical Bun lockfile and package manifests were unchanged; the previously reviewed Bun audit remains 7 high and 1 moderate. Bun audit was not rerun in this continuation.
 - Browser-tool initialization remains unavailable due the Windows `apply deny-read ACLs` error; no browser E2E or visual playtest cost/result is claimed.
+
+## Live resource snapshot (2026-10-02)
+
+- One existing Cloudflare Pages project (unchanged), one production Worker `dashcup-9289` serving API/game, and one staging Worker. No D1, KV, R2, Redis, Durable Objects, second zone, or second production Worker was created.
+- Production Neon project `bitter-mode-91626896`, branch `br-purple-river-b4v27of0`; staging branch `br-empty-cherry-b4mxu4la`. Production and staging migrations are applied. Production Worker version `7e3b55c8-c35c-44e9-a204-470e5d91841a`; staging version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849`.
+- Expo Worker asset bundle approx. 2.16 MB JavaScript; Wrangler uploaded 307.84 KiB source package (80.36 KiB gzip) on latest deploy. Existing Pages frontend was not rebuilt.
+- Latest Worker tests 11/11, TypeScript check, root lint, and Wrangler production dry-run passed. Canonical Bun audit remains 8 advisories (7 high, 1 moderate). Live rate-limit threshold and browser E2E remain unverified.
+- Resend delivery, reward-ad payouts and external conversion integrations remain disabled, so no provider delivery/usage is currently incurred by these flows.

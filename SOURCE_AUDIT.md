@@ -47,3 +47,11 @@ Audit date: 2026-10-02
 - This only checks plausible client evidence. It does not replay the game engine or establish a trustworthy score. No deterministic replay or perfect score verification is claimed. The browser remains capable of fabricating structurally plausible input evidence; this is a residual risk until a trusted gameplay signal exists.
 - Provider-controlled sponsor/PPI/CPA quest events remain disabled without an authenticated provider callback contract. No client endpoint can set provider quest progress.
 - Embedded Expo game now suppresses the original promotional/utility game-over footer while the bridge run is active. Standalone source behavior remains intact; the scoreboard and parent controls are retained.
+
+## Live deployment/source status (2026-10-02)
+
+- Existing upstream repo and v0 frontend are retained. Branch `codex/dashcup-rebuild`; baseline before final config/report changes `f307a6298ec09a096593f34d6a7ff6051601a70e`.
+- Existing Expo Crossy Road source is exported to Worker assets. Current source/control styling retains scoreboard and Start/Restart/5x Reward; gameplay replay remains nondeterministic because game randomness and movement are not reconstructed from the server seed.
+- Production Worker `dashcup-9289`, version `7e3b55c8-c35c-44e9-a204-470e5d91841a`, runs on `api.dashcup.com` and serves game assets on `game.dashcup.com`. Production Neon `bitter-mode-91626896` / `br-purple-river-b4v27of0`: both migrations applied; 17 tables. Existing Pages at apex/www was not rebuilt.
+- API/game custom domains resolve via Cloudflare authoritative DNS and 1.1.1.1; the local default resolver still has NXDOMAIN. Existing site and PWA resources return 200.
+- Staging integration and validation are recorded in BUILD_REPORT.md. Browser E2E is blocked by Windows CUA startup ACL error. Reward/ad/provider flows and deterministic replay remain disabled/unverified. The canonical Bun audit has 8 known advisories (7 high, 1 moderate).

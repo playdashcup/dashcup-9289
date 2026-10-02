@@ -60,3 +60,15 @@ Game CI uses Bun in games/expo-crossy-road: bun install --frozen-lockfile; bunx 
 - The exported Expo game build was served through the existing staging Worker; this is a game asset update, not a Pages/frontend rebuild.
 - Latest staging smoke after the Expo asset refresh: API health/database, no-store response, allowed CORS preflight, denied-origin CORS, missing-CSRF rejection, game index, and the 2.16 MB Expo JS bundle passed.
 - Production migration is not applied: connected Neon preflight rejected the existing combined migrations at the `record_reward_email_change()` dollar-quoted function. Production branch remains unchanged; an approved supported migration path is still needed.
+
+## Production deployment — verified 2026-10-02
+
+- Existing Pages project and frontend were preserved. `https://dashcup.com/`, `https://www.dashcup.com/`, `https://dashcup.com/manifest.webmanifest`, and `https://www.dashcup.com/sw.js` returned 200. No Pages build or deployment was performed in this continuation.
+- The existing Worker `dashcup-9289` serves both `api.dashcup.com` and `game.dashcup.com` as custom domains. Production deploy version: `7e3b55c8-c35c-44e9-a204-470e5d91841a`; Wrangler deployment list confirms 100% traffic on that version. Game root and Expo JavaScript asset returned 200 over HTTPS.
+- Neon `bitter-mode-91626896` production branch `br-purple-river-b4v27of0`, database `neondb`: migrations `0001_initial` and `0002_resend_delivery` applied; 17 public base tables verified. Production `DATABASE_URL` is a Cloudflare Worker secret and was not printed or stored in source. API health reports database connected.
+- Production CORS preflight allows www (and config now allows the apex); allow response was HTTP 204 with credentialed origin/no-store. An unlisted web origin was rejected with 403.
+- Cloudflare authoritative nameservers and resolver 1.1.1.1 resolve API/game. Workstation default DNS still reports NXDOMAIN after resolver cache flush. Recheck from another resolver/device if needed; the Cloudflare Worker routes and TLS have been verified by fixed-edge HTTPS requests with the correct Host/SNI.
+- Staging Worker remains `https://dashcup-9289-staging.play-dashcup.workers.dev`, version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849`; staging integration evidence is in BUILD_REPORT.md.
+- Existing website Pages output was intentionally left untouched. Source updates to GameBridge remain unpublished pending a separately authorized Pages deployment. `GAME_REPLAY_ENABLED=false`; `REWARD_EMAIL_DELIVERY_ENABLED=false`.
+- Later Resend setup: create/verify a sending domain such as `mail.dashcup.com` in Resend, add the exact DNS records Resend provides to the authoritative Cloudflare zone, set the server-side `RESEND_FROM_EMAIL` and API/webhook secrets, then explicitly enable production delivery. Do not place the Resend key in frontend or `NEXT_PUBLIC_*` variables.
+- A production bootstrap smoke check created one anonymous test user/session and its initial quest rows; no gameplay or redemption data was created.

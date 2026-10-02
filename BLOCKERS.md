@@ -57,3 +57,14 @@ Updated: 2026-10-02
 - Deterministic replay is explicitly not required for this release. Scores are only plausibility-checked against bounded input evidence; this does not prove the actual game score.
 - Production schema migration and production Worker release remain pending. Neon’s migration workflow requires explicit user approval after reviewing its prepared production migration; no production data/schema has been changed.
 - Production migration preflight: production Neon branch `br-purple-river-b4v27of0` was read and is empty (no tables). The connected Neon `prepare_database_migration` tool rejected the existing combined `0001_initial.sql` + `0002_resend_delivery.sql` script with `INVALID_ARGUMENT: unterminated dollar-quoted string` at `record_reward_email_change()`; no production schema was changed. This tool requires user approval before its production apply step. Do not use an alternate direct production SQL path without that approval.
+
+## Current blockers and release boundaries (2026-10-02)
+
+- **Local DNS cache/resolver convergence:** Cloudflare authoritative and 1.1.1.1 queries resolve `api.dashcup.com` and `game.dashcup.com` to Cloudflare proxy addresses, and their TLS Worker routes return HTTPS responses when tested through the resolved Cloudflare edge. This workstation's default resolver still reports NXDOMAIN after cache flush. No DNS record needs to be fabricated; recheck the local resolver later.
+- **Browser E2E:** the one allowed retry failed before browser startup with `windows sandbox failed: helper_unknown_error: apply deny-read ACLs`. HTTP integration checks were used; browser behavior is not verified.
+- **Rate limiting:** the Worker has a 60-per-60-second Cloudflare binding and a unit test for 429 handling; live threshold behavior has not been proven (previous 140-request probe returned no 429).
+- **Game score integrity:** replay is not deterministic or implemented. Evidence is plausibility-checked only; keep `GAME_REPLAY_ENABLED=false` and do not make unverified client score authoritative.
+- **Frontend publish:** Pages remains the existing source of truth and was not rebuilt/deployed. The requested `5x Reward` source text is therefore not confirmed live.
+- **External providers:** Resend delivery, rewarded ads, MyLead conversions and Hilltop placements remain disabled until verified sender/secrets, trusted ad callback, and provider credentials/placement configuration exist. Do not invent values.
+- **Dependency audit:** canonical Bun audit remains 8 known advisories (7 high, 1 moderate); Bun is unavailable in the present local validation setup. No npm substitute is claimed as the canonical audit.
+- Production Neon migrations are approved, applied and verified; the existing production Worker is deployed. These are no longer blockers. Staging remains `https://dashcup-9289-staging.play-dashcup.workers.dev`, version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849`.

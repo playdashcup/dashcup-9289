@@ -45,3 +45,11 @@ Updated: 2026-10-02
 - Residual: evidence remains client generated, and no deterministic replay validates the actual game state. The score ceiling is an input-count plausibility rule only. `GAME_REPLAY_ENABLED` remains false and no game-run trophies are directly awarded.
 - Reward-ad, Resend, MyLead PPI/CPA, and Hilltop payouts remain disabled until real server-verifiable provider configuration exists. Secrets remain server-side.
 - The existing Expo game bundle was exported and served via the staging Worker's existing asset binding. The modified embedded game-over path suppresses the unrelated original source-game offers and utility controls; this does not change game rules or trust client scores.
+
+## Current production security verification (2026-10-02)
+
+- Production API health: HTTP 200, database connected, `Cache-Control: no-store`. Credentialed CORS preflight for `https://www.dashcup.com`: 204; unlisted origin: 403. Both apex and www are allowed by the newly deployed Worker config.
+- API/game requests use the existing Cloudflare Worker custom domains and TLS. API/game DNS resolves at Cloudflare authoritative DNS and 1.1.1.1; the local system default resolver remained stale during this check.
+- Production game replay remains disabled; evidence is plausibility-checked only. No game trophy should be considered earned from an unverified browser score. Rewarded-ad, provider conversion and Resend delivery remain disabled until trusted provider verification/secrets exist.
+- Production `DATABASE_URL` is stored as a Cloudflare Worker secret; secret values were neither printed nor committed. Reports contain no plaintext reward codes or API credentials. Production smoke bootstrap created a single anonymous test account/session plus initial quests; no gameplay or redemption records.
+- Browser E2E is unverified due the CUA startup error. Cloudflare live rate-threshold behavior also remains unproven despite configured binding and unit coverage. See BLOCKERS.md.
