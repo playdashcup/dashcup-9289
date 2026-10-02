@@ -7,7 +7,7 @@ Updated: 2026-10-02
 
 ## Cloudflare
 - The existing `dashcup.com` zone is active in the intended account with `blakely.ns.cloudflare.com` and `norman.ns.cloudflare.com`; no duplicate zone was created.
-- Pages project `dashcup-9289` is connected to `codex/dashcup-rebuild`. Its successful latest deployment for HEAD is https://a5a0728c.dashcup-9289.pages.dev. A proxied CNAME `www.dashcup.com` → `dashcup-9289.pages.dev` was added; public DNS resolves through Cloudflare and HTTPS returns 200.
+- Pages project `dashcup-9289` is connected to `codex/dashcup-rebuild`. The successful deployment for report commit `1a827674ecc5f1f10fd58178fe5b27b079634161` is https://f65e0577.dashcup-9289.pages.dev. A proxied CNAME `www.dashcup.com` → `dashcup-9289.pages.dev` was added; public DNS resolves through Cloudflare and HTTPS returns 200.
 - Worker scripts list is empty. Local Wrangler reports not authenticated. Staging/production secrets are not configured; Worker-to-Neon and public API/game routes cannot be verified. Authenticate Wrangler with `wrangler login` or configure deployment credentials in the approved deployment environment.
 - DNS records for `api.dashcup.com` and `game.dashcup.com` are absent until the single Worker is deployed. The existing apex `dashcup.com` record currently points to unproxied `127.0.0.1`; apex serving/redirect is not verified.
 - Staging Wrangler configuration sets `routes: []`; staging and production dry-runs pass locally.
