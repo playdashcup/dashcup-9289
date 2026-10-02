@@ -3,7 +3,7 @@ Updated: 2026-10-02
 
 ## Repository
 - Source of truth: https://github.com/playdashcup/dashcup-9289, audited from current main at 2a5222980662f416ce4ab064000878a56e26ed3e.
-- Working branch: `codex/dashcup-rebuild`; report commit `1a827674ecc5f1f10fd58178fe5b27b079634161` is pushed to origin. The worktree was clean at the start of this continuation; generated dependencies/assets were rebuilt from locked sources.
+- Working branch: `codex/dashcup-rebuild`; report commit `307244bfff1f277e52267bd01a5f653eeecdbbe7` is pushed to origin. The worktree was clean at the start of this continuation; generated dependencies/assets were rebuilt from locked sources.
 - Existing v0 Next.js frontend remains the source of the website design.
 - Expo Crossy Road source is integrated under games/expo-crossy-road and branded ChickenDash. The owner confirmed licensing in chat; bundle redistribution rights have not been independently audited.
 
@@ -26,7 +26,7 @@ Updated: 2026-10-02
 - Expo lint: PASS (0 errors, 68 warnings); Expo web export: PASS, 2.16 MB JavaScript bundle exported to server/game-dist. Bun 1.4.2 was run via npm exec against the canonical Bun lockfile. `bun audit` after safe updates, compatible overrides and EAS CLI removal reports 8 advisories (7 high, 1 moderate; no critical). The CI game-audit job reports these remaining advisories.
 - Neon staging: migration versions `0001_initial` and `0002_resend_delivery` confirmed; the expected base schema and delivery-status/webhook tables were verified previously. Production branch is ready but currently has no `schema_migrations` table, so no production schema is deployed.
 - GitHub Actions run 36979194379: frontend lint/build PASS; Worker Expo lint/export, typecheck, 10/10 tests, staging dry-run, and production dry-run PASS; canonical Bun audit reports 8 advisories. Vercel status PASS.
-- Cloudflare zone `dashcup.com` is active on the assigned nameservers. Pages deployment for report commit `1a827674ecc5f1f10fd58178fe5b27b079634161` succeeded at https://f65e0577.dashcup-9289.pages.dev. Added the exact project-target proxied CNAME for `www`; public DNS resolution and HTTPS return 200.
+- Cloudflare zone `dashcup.com` is active on the assigned nameservers. Pages deployment for report commit `307244bfff1f277e52267bd01a5f653eeecdbbe7` succeeded at https://30640269.dashcup-9289.pages.dev; the site, manifest and service worker return HTTP 200. The exact project-target proxied CNAME for `www` is configured; public DNS and HTTPS return 200.
 - `www.dashcup.com` is active in Cloudflare Pages and returns HTTP 200 over HTTPS. No API Worker is deployed, so API/game custom domains are not serving this application.
 - GameBridge buffers move evidence synchronously and ignores duplicate finish messages for a run. The server checks claimed score against recorded forward inputs rather than an arbitrary score-per-second ceiling; this remains a plausibility check, not deterministic replay.
 - No browser E2E, Worker staging deployment, or live API endpoint verification has been performed. CUA browser launch exited because its trusted Node process unexpectedly exited. Wrangler requires authentication. `api.dashcup.com` and `game.dashcup.com` DNS records remain absent, and the game host is not deployed.
