@@ -181,41 +181,49 @@ app.get('/api/bootstrap', async (c) => {
     target: quest.target,
     reward: quest.reward,
   }))
-  await sql`INSERT INTO quests(id,user_id,cycle_type,cycle_id,quest_type,target,reward)
-    SELECT id,user_id,cycle_type,cycle_id,quest_type,target,reward
-    FROM jsonb_to_recordset(${JSON.stringify(questRows)}::jsonb) AS x(id text,user_id uuid,cycle_type text,cycle_id text,quest_type text,target integer,reward integer)
-    ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO NOTHING`
-
-  const [snapshot] = await sql`SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.gift_choice,
-      COALESCE(jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
+  const [snapshot] = await sql`WITH seeded_quests AS (
+      INSERT INTO quests(id,user_id,cycle_type,cycle_id,quest_type,target,reward)
+      SELECT id,user_id,cycle_type,cycle_id,quest_type,target,reward
+      FROM jsonb_to_recordset(${JSON.stringify(questRows)}::jsonb) AS x(id text,user_id uuid,cycle_type text,cycle_id text,quest_type text,target integer,reward integer)
+      ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO NOTHING
+      RETURNING id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed
+    ) SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.gift_choice,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
         'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
-        ORDER BY q.cycle_type,q.quest_type) FILTER (WHERE q.id IS NOT NULL),'[]'::jsonb) AS quests
-    FROM users u LEFT JOIN quests q ON q.user_id=u.id AND
-      ((q.cycle_type='daily' AND q.cycle_id=${dailyId}) OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId}))
-    WHERE u.id=${activeSession.user_id} AND u.disabled_at IS NULL GROUP BY u.id`
+        ORDER BY q.cycle_type,q.quest_type)
+        FROM (SELECT id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed FROM quests
+          WHERE user_id=u.id AND ((cycle_type='daily' AND cycle_id=${dailyId}) OR (cycle_type='weekly' AND cycle_id=${weeklyId}))
+          UNION ALL
+          SELECT id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed FROM seeded_quests) q),'[]'::jsonb) AS quests
+    FROM users u WHERE u.id=${activeSession.user_id} AND u.disabled_at IS NULL`
   const user = snapshot
   if (!user) return c.json({ error: 'Session user unavailable', code: 'SESSION_INVALID' }, 401)
   const quests = snapshot.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
   const activeCycle = biweeklyId(now)
   const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
-  const activeRows = await sql`SELECT row_number() OVER (ORDER BY cs.trophies DESC, cs.user_id)::integer AS rank,
-    u.display_name AS name, cs.trophies FROM cycle_scores cs JOIN users u ON u.id=cs.user_id
-    WHERE cs.cycle_id=${activeCycle} ORDER BY cs.trophies DESC, cs.user_id LIMIT 20`
-  const closedRows = await sql`SELECT ranked.rank,ranked.name,ranked.trophies,ranked.is_current_user,
-      CASE WHEN ranked.is_current_user THEN EXISTS(SELECT 1 FROM reward_redemptions r
-        WHERE r.user_id=ranked.user_id AND r.cycle_id=${closedCycle} AND r.status <> 'cancelled') ELSE false END AS redeemed
-    FROM (SELECT row_number() OVER (ORDER BY cs.trophies DESC,cs.user_id)::integer AS rank,
+  const [leaderboardSnapshot] = await sql`WITH ranked AS (
+      SELECT cs.cycle_id,row_number() OVER (PARTITION BY cs.cycle_id ORDER BY cs.trophies DESC,cs.user_id)::integer AS rank,
         u.display_name AS name,cs.trophies,cs.user_id,(cs.user_id=${activeSession.user_id}) AS is_current_user
-      FROM cycle_scores cs JOIN users u ON u.id=cs.user_id WHERE cs.cycle_id=${closedCycle}
-      ORDER BY cs.trophies DESC,cs.user_id LIMIT 20) ranked ORDER BY ranked.rank`
-  const eligibility = closedRows.find((row) => row.is_current_user)
+      FROM cycle_scores cs JOIN users u ON u.id=cs.user_id WHERE cs.cycle_id IN (${activeCycle},${closedCycle})
+    ), top_rows AS (
+      SELECT * FROM ranked WHERE rank<=20
+    ) SELECT
+      COALESCE(jsonb_agg(jsonb_build_object('rank',rank,'name',name,'trophies',trophies) ORDER BY rank)
+        FILTER (WHERE cycle_id=${activeCycle}),'[]'::jsonb) AS active,
+      COALESCE(jsonb_agg(jsonb_build_object('rank',rank,'name',name,'trophies',trophies) ORDER BY rank)
+        FILTER (WHERE cycle_id=${closedCycle}),'[]'::jsonb) AS closed,
+      max(rank) FILTER (WHERE cycle_id=${closedCycle} AND is_current_user) AS user_rank,
+      COALESCE(bool_or(is_current_user AND EXISTS(SELECT 1 FROM reward_redemptions r
+        WHERE r.user_id=top_rows.user_id AND r.cycle_id=${closedCycle} AND r.status<>'cancelled'))
+        FILTER (WHERE cycle_id=${closedCycle}),false) AS redeemed
+    FROM top_rows`
   return c.json({
     success: true,
     csrfToken,
     me: { user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, giftChoice: user.gift_choice },
     quests: quests.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })),
-    leaderboard: { active: activeRows, closed: closedRows.map(({ rank, name, trophies }) => ({ rank, name, trophies })), cycle: activeCycle },
-    eligibility: { eligible: Boolean(eligibility), rank: eligibility?.rank ?? null, cycle: closedCycle, rewardEmail: user.reward_email, giftChoice: user.gift_choice, redeemed: eligibility?.redeemed ?? false },
+    leaderboard: { active: leaderboardSnapshot.active, closed: leaderboardSnapshot.closed, cycle: activeCycle },
+    eligibility: { eligible: leaderboardSnapshot.user_rank !== null, rank: leaderboardSnapshot.user_rank ?? null, cycle: closedCycle, rewardEmail: user.reward_email, giftChoice: user.gift_choice, redeemed: leaderboardSnapshot.redeemed },
     referral: { referralCode: user.referral_code, referralUrl: `${c.env.PUBLIC_ORIGIN}/?ref=${encodeURIComponent(user.referral_code)}` },
   })
 })
@@ -340,20 +348,23 @@ app.post('/api/game/end', async (c) => {
     ), activity AS (
       UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
       FROM stored s WHERE q.user_id=s.user_id AND ((q.cycle_type='daily' AND q.cycle_id=${dailyId} AND q.quest_type IN ('play_1','play_5'))
-        OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='play_20')) AND q.progress<q.target RETURNING q.user_id
+        OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='play_20')) AND q.progress<q.target
+      RETURNING q.id,q.user_id,q.cycle_type,q.cycle_id,q.quest_type,q.target,q.progress,q.reward,q.completed,q.claimed
     ), new_pb AS (
       UPDATE users u SET personal_best=s.verified_score,updated_at=now() FROM stored s
       WHERE u.id=s.user_id AND s.verified_score>u.personal_best RETURNING u.id
     ), daily_pb AS (
       UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
-      FROM new_pb p WHERE q.user_id=p.id AND q.cycle_type='daily' AND q.cycle_id=${dailyId} AND q.quest_type='new_pb' AND q.progress<q.target RETURNING q.user_id
+      FROM new_pb p WHERE q.user_id=p.id AND q.cycle_type='daily' AND q.cycle_id=${dailyId} AND q.quest_type='new_pb' AND q.progress<q.target
+      RETURNING q.id,q.user_id,q.cycle_type,q.cycle_id,q.quest_type,q.target,q.progress,q.reward,q.completed,q.claimed
     ), pb_day AS (
       INSERT INTO weekly_pb_days(user_id,week_id,utc_day,score)
       SELECT p.id,${weeklyId},${dailyId}::date,s.verified_score FROM new_pb p JOIN stored s ON s.user_id=p.id
       ON CONFLICT(user_id,week_id,utc_day) DO NOTHING RETURNING user_id
     ), pb_week AS (
       UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
-      FROM pb_day p WHERE q.user_id=p.user_id AND q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='pb_3_days' AND q.progress<q.target RETURNING q.user_id
+      FROM pb_day p WHERE q.user_id=p.user_id AND q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='pb_3_days' AND q.progress<q.target
+      RETURNING q.id,q.user_id,q.cycle_type,q.cycle_id,q.quest_type,q.target,q.progress,q.reward,q.completed,q.claimed
     ), qualified AS (
       UPDATE referrals r SET qualified_at=now() FROM stored s
       WHERE r.referee_id=s.user_id AND r.qualified_at IS NULL RETURNING r.referrer_id
@@ -363,8 +374,26 @@ app.post('/api/game/end', async (c) => {
       ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO UPDATE
         SET progress=LEAST(quests.target,quests.progress+1),completed=(LEAST(quests.target,quests.progress+1)>=quests.target),updated_at=now()
         WHERE quests.claimed=false AND quests.progress<quests.target
-      RETURNING user_id
-    ) SELECT s.run_id,s.verified_score,(SELECT count(*) FROM activity) AS activity_events,
+      RETURNING id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed
+    ), changed_quests AS (
+      SELECT * FROM activity
+      UNION ALL SELECT * FROM daily_pb
+      UNION ALL SELECT * FROM pb_week
+      UNION ALL SELECT * FROM referral_quest
+    ) SELECT s.run_id,s.verified_score,
+      (SELECT jsonb_build_object('id',u.id,'displayName',u.display_name,'trophies',u.trophies,
+        'personalBest',u.personal_best,'referralCode',u.referral_code,'rewardEmail',u.reward_email,'giftChoice',u.gift_choice)
+       FROM users u WHERE u.id=s.user_id) AS me,
+      (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
+        'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
+        ORDER BY q.cycle_type,q.quest_type),'[]'::jsonb)
+       FROM (SELECT q.id,q.user_id,q.cycle_type,q.cycle_id,q.quest_type,q.target,q.progress,q.reward,q.completed,q.claimed
+         FROM quests q WHERE q.user_id=s.user_id AND
+           ((q.cycle_type='daily' AND q.cycle_id=${dailyId}) OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId}))
+           AND NOT EXISTS (SELECT 1 FROM changed_quests changed WHERE changed.id=q.id)
+         UNION ALL SELECT id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed
+           FROM changed_quests WHERE user_id=s.user_id) q) AS quests,
+      (SELECT count(*) FROM activity) AS activity_events,
       (SELECT count(*) FROM daily_pb) AS daily_pb_events,(SELECT count(*) FROM pb_week) AS weekly_pb_events,
       (SELECT count(*) FROM referral_quest) AS referral_events FROM stored s`
   if (!recorded) {
@@ -383,14 +412,8 @@ app.post('/api/game/end', async (c) => {
     await logSuspiciousRun(c, safeRunId, reasons[0], evidenceHash)
     return c.json({ error: 'Run token is invalid, expired, or already used', code: 'RUN_INVALID' }, 409)
   }
-  const [progress] = await sql`SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.gift_choice,
-      COALESCE(jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
-        'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
-        ORDER BY q.cycle_type,q.quest_type) FILTER (WHERE q.id IS NOT NULL),'[]'::jsonb) AS quests
-    FROM users u LEFT JOIN quests q ON q.user_id=u.id AND
-      ((q.cycle_type='daily' AND q.cycle_id=${dailyId}) OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId}))
-    WHERE u.id=${c.get('userId')} GROUP BY u.id`
-  const stateQuests = progress.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
+  const progress = recorded.me as { id: string; displayName: string; trophies: number; personalBest: number | null; referralCode: string; rewardEmail: string | null; giftChoice: string | null }
+  const stateQuests = recorded.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
   return c.json({
     accepted: true,
     verification: 'plausibility_checked',
@@ -398,7 +421,7 @@ app.post('/api/game/end', async (c) => {
     score: recorded.verified_score,
     trophiesEarned: 0,
     state: {
-      me: { user: { id: progress.id, displayName: progress.display_name }, trophies: Number(progress.trophies), personalBest: progress.personal_best, referralCode: progress.referral_code, rewardEmail: progress.reward_email, giftChoice: progress.gift_choice },
+      me: { user: { id: progress.id, displayName: progress.displayName }, trophies: Number(progress.trophies), personalBest: progress.personalBest, referralCode: progress.referralCode, rewardEmail: progress.rewardEmail, giftChoice: progress.giftChoice },
       quests: stateQuests.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })),
     },
   })
