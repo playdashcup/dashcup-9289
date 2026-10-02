@@ -59,3 +59,4 @@ Game CI uses Bun in games/expo-crossy-road: bun install --frozen-lockfile; bunx 
 - Reward email, rewarded-ad payouts, and MyLead/Hilltop-dependent rewards remain disabled until their real external configurations are verified. See `BLOCKERS.md` for remaining release gates.
 - The exported Expo game build was served through the existing staging Worker; this is a game asset update, not a Pages/frontend rebuild.
 - Latest staging smoke after the Expo asset refresh: API health/database, no-store response, allowed CORS preflight, denied-origin CORS, missing-CSRF rejection, game index, and the 2.16 MB Expo JS bundle passed.
+- Production migration is not applied: connected Neon preflight rejected the existing combined migrations at the `record_reward_email_change()` dollar-quoted function. Production branch remains unchanged; an approved supported migration path is still needed.

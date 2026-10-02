@@ -68,3 +68,4 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Expo web export completed (2.16 MB JS bundle) and the existing staging Worker was redeployed with the new game bundle as version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849`. Next.js/Pages was not rebuilt or redeployed.
 
 - Final version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849` staging smoke: `/api/health` 200 with database connected and `Cache-Control: no-store`; allowed preflight 204; denied origin 403; missing CSRF 403; game index and Expo bundle 200 (2,162,206 bytes).
+- Neon production preflight confirmed the production branch is still empty. The connected migration-preparation workflow rejected the combined existing migrations at the dollar-quoted trigger function; no production schema changes were applied. Awaiting an approved, tool-supported production migration workflow.
