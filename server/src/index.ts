@@ -1,7 +1,9 @@
 import { neon } from '@neondatabase/serverless'
 import { Hono, type Context } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { getCookie, setCookie } from 'hono/cookie'
 import { decryptRewardCode, encryptRewardCode, type RewardType } from './security/reward-code'
+import { constantTimeStringEqual } from './security/timing-safe'
 import { rewardEmailTemplate } from './email/reward-template'
 import { sendRewardEmail } from './email/resend'
 import { biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, validateEvidence, weekId } from './domain'
@@ -63,9 +65,7 @@ async function verifyResendSignature(secret: string, eventId: string, timestamp:
   return signatureHeader.split(' ').some((signature) => {
     const [version, value] = signature.split(',', 2)
     if (version !== 'v1' || !value || value.length !== expected.length) return false
-    let difference = 0
-    for (let index = 0; index < expected.length; index += 1) difference |= expected.charCodeAt(index) ^ value.charCodeAt(index)
-    return difference === 0
+    return constantTimeStringEqual(expected, value)
   })
 }
 
@@ -92,6 +92,15 @@ app.use('/api/*', async (c, next) => {
   if (limit && !limit.success) return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
   await next()
 })
+
+app.use('/api/*', bodyLimit({
+  maxSize: 128_000,
+  onError: (c) => c.json({ error: 'Request body too large', code: 'PAYLOAD_TOO_LARGE' }, 413),
+}))
+app.use('/webhooks/resend', bodyLimit({
+  maxSize: 64_000,
+  onError: (c) => c.json({ error: 'Payload too large', code: 'PAYLOAD_TOO_LARGE' }, 413),
+}))
 
 app.get('/api/health', async (c) => {
   try {
@@ -214,7 +223,7 @@ async function requireSession(c: AppContext) {
 async function requireCsrf(c: AppContext) {
   const supplied = c.req.header('X-CSRF-Token')
   if (!supplied || !await requireSession(c)) return false
-  return (await sha256(supplied)) === c.get('csrfHash')
+  return constantTimeStringEqual(await sha256(supplied), c.get('csrfHash'))
 }
 
 app.get('/api/me', async (c) => {
@@ -482,9 +491,7 @@ app.post('/api/admin/rewards/import', async (c) => {
   if (!adminToken || !supplied) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
   const expectedHash = await sha256(adminToken)
   const suppliedHash = await sha256(supplied)
-  let authDifference = 0
-  for (let index = 0; index < expectedHash.length; index += 1) authDifference |= expectedHash.charCodeAt(index) ^ (suppliedHash.charCodeAt(index) ?? 0)
-  if (authDifference !== 0) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  if (!constantTimeStringEqual(expectedHash, suppliedHash)) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
   if (!c.env.REWARD_ENCRYPTION_KEY) return c.json({ error: 'Reward encryption is not configured.', code: 'REWARD_CONFIG_MISSING' }, 503)
   const body = await c.req.json().catch(() => null) as { rewardType?: unknown; codes?: unknown } | null
   const choices = new Set<RewardType>(['robux', 'freefire', 'vbucks', 'pubg', 'cod'])

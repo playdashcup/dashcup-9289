@@ -1,9 +1,32 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { biweeklyId, dayId, QUESTS, validateEvidence, weekId } from '../src/domain.ts'
+import { constantTimeStringEqual } from '../src/security/timing-safe.ts'
 import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '../src/security/reward-code.ts'
 import { rewardEmailTemplate } from '../src/email/reward-template.ts'
 import { sendRewardEmail } from '../src/email/resend.ts'
+
+test('compares security digests across all characters and rejects unequal lengths', () => {
+  assert.equal(constantTimeStringEqual('a'.repeat(64), 'a'.repeat(64)), true)
+  assert.equal(constantTimeStringEqual('a'.repeat(64), `${'a'.repeat(63)}b`), false)
+  assert.equal(constantTimeStringEqual('a'.repeat(64), 'a'.repeat(63)), false)
+})
+
+test('caps streamed request bodies before JSON handlers receive them', async () => {
+  const app = new Hono()
+  app.use('/api/*', bodyLimit({ maxSize: 7, onError: (c) => c.json({ code: 'PAYLOAD_TOO_LARGE' }, 413) }))
+  app.post('/api/test', async (c) => c.json(await c.req.json()))
+
+  const accepted = await app.request('/api/test', { method: 'POST', body: '{"a":1}' })
+  assert.equal(accepted.status, 200)
+  assert.deepEqual(await accepted.json(), { a: 1 })
+
+  const rejected = await app.request('/api/test', { method: 'POST', body: '{"a":10}' })
+  assert.equal(rejected.status, 413)
+  assert.deepEqual(await rejected.json(), { code: 'PAYLOAD_TOO_LARGE' })
+})
 
 test('publishes exactly four daily and five weekly quests with the guide values', () => {
   assert.equal(QUESTS.filter((quest) => quest.period === 'daily').length, 4)
