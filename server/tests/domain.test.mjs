@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import { isRateLimited, rateLimitKey } from '../src/security/rate-limit.ts'
 import { biweeklyId, dayId, QUESTS, validateEvidence, weekId } from '../src/domain.ts'
 import { constantTimeStringEqual } from '../src/security/timing-safe.ts'
 import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '../src/security/reward-code.ts'
@@ -34,6 +35,34 @@ test('caps streamed request bodies before JSON handlers receive them', async () 
   const rejected = await app.request('/api/test', { method: 'POST', body: '{"a":10}' })
   assert.equal(rejected.status, 413)
   assert.deepEqual(await rejected.json(), { code: 'PAYLOAD_TOO_LARGE' })
+})
+
+test('returns a 429 response when the Cloudflare rate-limit binding rejects a request', async () => {
+  const observedKeys = []
+  const key = rateLimitKey('198.51.100.7', '/api/health')
+  const app = new Hono()
+  app.use('/api/*', async (c, next) => {
+    if (await isRateLimited(c.env.API_RATE_LIMIT, key)) {
+      return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
+    }
+    await next()
+  })
+  app.get('/api/health', (c) => c.json({ ok: true }))
+
+  const response = await app.request('/api/health', {
+    headers: { 'CF-Connecting-IP': '198.51.100.7' },
+  }, {
+    API_RATE_LIMIT: {
+      limit: async ({ key }) => {
+        observedKeys.push(key)
+        return { success: false }
+      },
+    },
+  })
+
+  assert.equal(response.status, 429)
+  assert.deepEqual(await response.json(), { error: 'Too many requests', code: 'RATE_LIMITED' })
+  assert.deepEqual(observedKeys, ['198.51.100.7:/api/health'])
 })
 
 test('publishes exactly four daily and five weekly quests with the guide values', () => {

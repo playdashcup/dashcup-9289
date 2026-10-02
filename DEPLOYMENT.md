@@ -42,3 +42,8 @@ Game CI uses Bun in games/expo-crossy-road: bun install --frozen-lockfile; bunx 
 - Staging Neon `DATABASE_URL` is stored as a Worker secret from project `bitter-mode-91626896`, branch `dashcup-staging` (`br-empty-cherry-b4mxu4la`). No production secret/migration was applied.
 - Staging API/asset checks are detailed in BUILD_REPORT.md. Browser E2E did not run because CUA initialization exits; rate-limit outcome is unverified.
 - Do not deploy production or bind production `api.dashcup.com`/`game.dashcup.com` yet. Remaining release gates: browser E2E, actual deterministic replay/tests, quest/referral event progression, trusted provider callbacks and Bun audit triage. After staging passes, migrate production Neon from existing migrations, verify schema, configure production secrets, deploy the existing single Worker, then validate Cloudflare custom domains/TLS.
+
+## Latest staging rate-guard update
+- Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
+- Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
+- Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.

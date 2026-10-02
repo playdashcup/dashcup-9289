@@ -32,3 +32,8 @@ Audit date: 2026-10-02
 - Existing Worker is deployed to staging script `dashcup-9289-staging`, version `6aef8761-d60c-4470-a024-509679ece2b8`; staging Neon secret configured. Production not deployed.
 - Staging API/data health, bootstrap/session, quest catalog, leaderboard, referral link, reward status and game assets returned expected responses. CORS/CSRF checks passed; game end remained pending with zero awards.
 - Replay assessment remains unchanged: gameplay has multiple unseeded `Math.random` sources, frame/time-dependent movement/collisions, and does not consume the server seed. No deterministic replay is verified.
+
+## Latest staging rate-guard update
+- Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
+- Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
+- Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.

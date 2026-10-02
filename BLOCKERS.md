@@ -39,3 +39,8 @@ Updated: 2026-10-02
 - Staging API smoke passed for health/database, bootstrap/session, me, quests, leaderboard, referral link, reward status, CORS preflight/denial, CSRF rejection and valid-CSRF game start/end; game end is pending and awards zero. `/index.html` and a texture asset return 200. A 70-concurrent plus 70-sequential request probe observed only 200s and no 429; Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent, so throttling remains unverified.
 - Remaining gates: browser E2E (CUA exits on `apply deny-read ACLs`), deterministic replay (server seed unused; random game generation and time-dependent movement), quest/referral progress writers, signed MyLead callbacks, Bun audit triage, production custom domains, production migration/deploy. Do not direct production API/game domains to staging.
 - No production database changes or production Worker deploy occurred. No personal Wrangler action is needed for staging.
+
+## Latest staging rate-guard update
+- Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
+- Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
+- Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.

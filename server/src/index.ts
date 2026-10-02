@@ -6,6 +6,7 @@ import { decryptRewardCode, encryptRewardCode, type RewardType } from './securit
 import { constantTimeStringEqual } from './security/timing-safe'
 import { rewardEmailTemplate } from './email/reward-template'
 import { sendRewardEmail } from './email/resend'
+import { isRateLimited, rateLimitKey } from './security/rate-limit'
 import { biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, validateEvidence, weekId } from './domain'
 
 interface Env {
@@ -88,8 +89,9 @@ app.use('/api/*', async (c, next) => {
     return c.body(null, 204)
   }
   const address = c.req.header('CF-Connecting-IP') ?? 'unknown'
-  const limit = await c.env.API_RATE_LIMIT?.limit({ key: `${address}:${new URL(c.req.url).pathname}` })
-  if (limit && !limit.success) return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
+  if (await isRateLimited(c.env.API_RATE_LIMIT, rateLimitKey(address, new URL(c.req.url).pathname))) {
+    return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
+  }
   await next()
 })
 
