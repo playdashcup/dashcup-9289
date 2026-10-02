@@ -53,3 +53,7 @@ Updated: 2026-10-02
 - Production game replay remains disabled; evidence is plausibility-checked only. No game trophy should be considered earned from an unverified browser score. Rewarded-ad, provider conversion and Resend delivery remain disabled until trusted provider verification/secrets exist.
 - Production `DATABASE_URL` is stored as a Cloudflare Worker secret; secret values were neither printed nor committed. Reports contain no plaintext reward codes or API credentials. Production smoke bootstrap created a single anonymous test account/session plus initial quests; no gameplay or redemption records.
 - Browser E2E is unverified due the CUA startup error. Cloudflare live rate-threshold behavior also remains unproven despite configured binding and unit coverage. See BLOCKERS.md.
+
+## Resend account check (2026-10-02)
+
+- The connected Resend account currently lists `dashcup.com` with status `not_started` and sending capability enabled; it does not list `mail.dashcup.com`. Domain verification is therefore not confirmed. Production delivery remains disabled; no test email was sent.

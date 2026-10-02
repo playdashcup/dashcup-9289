@@ -72,3 +72,9 @@ Game CI uses Bun in games/expo-crossy-road: bun install --frozen-lockfile; bunx 
 - Existing website Pages output was intentionally left untouched. Source updates to GameBridge remain unpublished pending a separately authorized Pages deployment. `GAME_REPLAY_ENABLED=false`; `REWARD_EMAIL_DELIVERY_ENABLED=false`.
 - Later Resend setup: create/verify a sending domain such as `mail.dashcup.com` in Resend, add the exact DNS records Resend provides to the authoritative Cloudflare zone, set the server-side `RESEND_FROM_EMAIL` and API/webhook secrets, then explicitly enable production delivery. Do not place the Resend key in frontend or `NEXT_PUBLIC_*` variables.
 - A production bootstrap smoke check created one anonymous test user/session and its initial quest rows; no gameplay or redemption data was created.
+
+
+## Resend account verification (2026-10-02)
+The connected Resend account lists dashcup.com (status 
+ot_started, sending capability enabled) and does not list mail.dashcup.com. No domain is verified for this app yet. Keep reward-email delivery disabled. When the intended subdomain is created, add the precise DNS records Resend supplies to Cloudflare, confirm verification, set the Worker sender/API/webhook secrets, then enable delivery.
+

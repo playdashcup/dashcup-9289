@@ -68,3 +68,9 @@ Updated: 2026-10-02
 - **External providers:** Resend delivery, rewarded ads, MyLead conversions and Hilltop placements remain disabled until verified sender/secrets, trusted ad callback, and provider credentials/placement configuration exist. Do not invent values.
 - **Dependency audit:** canonical Bun audit remains 8 known advisories (7 high, 1 moderate); Bun is unavailable in the present local validation setup. No npm substitute is claimed as the canonical audit.
 - Production Neon migrations are approved, applied and verified; the existing production Worker is deployed. These are no longer blockers. Staging remains `https://dashcup-9289-staging.play-dashcup.workers.dev`, version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849`.
+
+
+## Resend verification clarification (2026-10-02)
+- Connected Resend domain list contains dashcup.com only, with status 
+ot_started; mail.dashcup.com is not listed. No verified sender domain was confirmed, and production reward delivery remains disabled. The account owner should add/verify the intended sending subdomain and configure its exact DNS records before enabling delivery.
+

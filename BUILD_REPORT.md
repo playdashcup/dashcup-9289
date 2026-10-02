@@ -80,3 +80,7 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Worker tests 11/11, Worker TypeScript check, root lint and production Wrangler dry-run passed. Staging integration remains as previously recorded. Browser E2E retry was blocked by CUA startup `apply deny-read ACLs`; it is not claimed as passed. Live Cloudflare rate-limit threshold behavior remains unverified.
 - No deterministic game replay: server-side plausibility checks only. This is not a client-score authority; no game trophy award is enabled for unverified runs. CPI/CPA provider rewards, rewarded-ad payout, and reward email delivery remain disabled pending trusted provider configuration and verified Resend production sender/secrets. Canonical Bun audit remains 8 advisories (7 high, 1 moderate), per the existing review.
 - The production smoke created 1 anonymous account/session and 9 initial quest rows; no game sessions/runs or reward redemptions were created. No plaintext secrets or reward codes were written into these reports.
+
+## Resend account check (2026-10-02)
+
+- The connected Resend account currently lists `dashcup.com` with status `not_started` and sending capability enabled; it does not list `mail.dashcup.com`. Domain verification is therefore not confirmed. Production delivery remains disabled; no test email was sent.
