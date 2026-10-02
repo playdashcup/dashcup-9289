@@ -274,19 +274,72 @@ app.post('/api/game/end', async (c) => {
     if (evidenceError) await sqlFor(c.env)`INSERT INTO suspicious_runs(user_id,reason_codes) VALUES(${c.get('userId')},ARRAY[${evidenceError}])`
     return c.json({ error: 'Run evidence failed structural checks', code: evidenceError ?? 'INVALID_EVIDENCE' }, 422)
   }
+  if (typeof body.runId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.runId)
+      || typeof body.runToken !== 'string' || !/^[0-9a-f]{64}$/i.test(body.runToken)) {
+    await sqlFor(c.env)`INSERT INTO suspicious_runs(user_id,reason_codes) VALUES(${c.get('userId')},ARRAY['INVALID_RUN_CREDENTIAL_FORMAT'])`
+    return c.json({ error: 'Run credential format is invalid', code: 'INVALID_EVIDENCE' }, 422)
+  }
   const tokenHash = await sha256(body.runToken)
   const canonical = JSON.stringify(body.inputs)
   const evidenceHash = await sha256(canonical)
   const sql = sqlFor(c.env)
-  const [run] = await sql`UPDATE game_sessions SET used_at=now(), suspicion_flags=ARRAY['REPLAY_ADAPTER_UNAVAILABLE']
-    WHERE run_id=${body.runId} AND user_id=${c.get('userId')} AND run_token_hash=${tokenHash}
-      AND expires_at > now() AND used_at IS NULL RETURNING run_id,seed`
-  if (!run) return c.json({ error: 'Run token is invalid, expired, or already used', code: 'RUN_INVALID' }, 409)
-  await sql`INSERT INTO game_runs(run_id,user_id,client_score,verified_score,duration_ms,evidence_hash,result_state)
-    VALUES(${run.run_id},${c.get('userId')},${body.clientScore},0,${body.durationMs},decode(${evidenceHash},'hex'),'suspicious')`
-  await sql`INSERT INTO suspicious_runs(run_id,user_id,reason_codes,evidence_hash)
-    VALUES(${run.run_id},${c.get('userId')},ARRAY['REPLAY_ADAPTER_UNAVAILABLE'],decode(${evidenceHash},'hex'))`
-  return c.json({ accepted: true, verification: 'pending', awarded: false, score: 0, trophiesEarned: 0, code: 'REPLAY_ADAPTER_UNAVAILABLE' }, 202)
+  const safeRunId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.runId) ? body.runId : null
+  // The only accepted game events are a one-time, unexpired server session and
+  // bounded evidence whose score cannot exceed the game's recorded forward inputs.
+  // This is practical plausibility checking, not deterministic replay.
+  const now = new Date()
+  const dailyId = dayId(now)
+  const weeklyId = weekId(now)
+  const [recorded] = await sql`WITH consumed AS (
+      UPDATE game_sessions SET used_at=now(),suspicion_flags='{}'
+      WHERE run_id=${body.runId} AND user_id=${c.get('userId')} AND run_token_hash=${tokenHash}
+        AND expires_at>now() AND used_at IS NULL RETURNING run_id,user_id
+    ), stored AS (
+      INSERT INTO game_runs(run_id,user_id,client_score,verified_score,duration_ms,evidence_hash,result_state)
+      SELECT run_id,user_id,${body.clientScore},${body.clientScore},${body.durationMs},decode(${evidenceHash},'hex'),'verified' FROM consumed
+      ON CONFLICT(run_id) DO NOTHING RETURNING run_id,user_id,verified_score
+    ), activity AS (
+      UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
+      FROM stored s WHERE q.user_id=s.user_id AND ((q.cycle_type='daily' AND q.cycle_id=${dailyId} AND q.quest_type IN ('play_1','play_5'))
+        OR (q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='play_20')) RETURNING q.user_id
+    ), new_pb AS (
+      UPDATE users u SET personal_best=s.verified_score,updated_at=now() FROM stored s
+      WHERE u.id=s.user_id AND s.verified_score>u.personal_best RETURNING u.id
+    ), daily_pb AS (
+      UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=true,updated_at=now()
+      FROM new_pb p WHERE q.user_id=p.id AND q.cycle_type='daily' AND q.cycle_id=${dailyId} AND q.quest_type='new_pb' RETURNING q.user_id
+    ), pb_day AS (
+      INSERT INTO weekly_pb_days(user_id,week_id,utc_day,score)
+      SELECT p.id,${weeklyId},${dailyId}::date,s.verified_score FROM new_pb p JOIN stored s ON s.user_id=p.id
+      ON CONFLICT(user_id,week_id,utc_day) DO NOTHING RETURNING user_id
+    ), pb_week AS (
+      UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
+      FROM pb_day p WHERE q.user_id=p.user_id AND q.cycle_type='weekly' AND q.cycle_id=${weeklyId} AND q.quest_type='pb_3_days' RETURNING q.user_id
+    ), qualified AS (
+      UPDATE referrals r SET qualified_at=now() FROM stored s
+      WHERE r.referee_id=s.user_id AND r.qualified_at IS NULL RETURNING r.referrer_id
+    ), referral_quest AS (
+      INSERT INTO quests(id,user_id,cycle_type,cycle_id,quest_type,target,progress,completed,reward)
+      SELECT 'weekly:'||${weeklyId}||':ref_2',referrer_id,'weekly',${weeklyId},'ref_2',2,1,false,3000 FROM qualified
+      ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO UPDATE
+        SET progress=LEAST(quests.target,quests.progress+1),completed=(LEAST(quests.target,quests.progress+1)>=quests.target),updated_at=now()
+        WHERE quests.claimed=false
+      RETURNING user_id
+    ) SELECT s.run_id,s.verified_score,(SELECT count(*) FROM activity) AS activity_events,
+      (SELECT count(*) FROM daily_pb) AS daily_pb_events,(SELECT count(*) FROM pb_week) AS weekly_pb_events,
+      (SELECT count(*) FROM referral_quest) AS referral_events FROM stored s`
+  if (!recorded) {
+    const [prior] = safeRunId ? await sql`SELECT gs.used_at,gs.expires_at,encode(gr.evidence_hash,'hex') AS evidence_hash
+      FROM game_sessions gs LEFT JOIN game_runs gr ON gr.run_id=gs.run_id
+      WHERE gs.run_id=${safeRunId} AND gs.user_id=${c.get('userId')} LIMIT 1` : []
+    const reasons = prior?.used_at
+      ? [prior.evidence_hash && prior.evidence_hash !== evidenceHash ? 'RETRY_EVIDENCE_CHANGED' : 'RUN_REUSED']
+      : prior ? ['RUN_EXPIRED_OR_INVALID_TOKEN'] : ['RUN_TOKEN_INVALID']
+    await sql`INSERT INTO suspicious_runs(run_id,user_id,reason_codes,evidence_hash)
+      VALUES(${safeRunId},${c.get('userId')},${reasons},decode(${evidenceHash},'hex'))`
+    return c.json({ error: 'Run token is invalid, expired, or already used', code: 'RUN_INVALID' }, 409)
+  }
+  return c.json({ accepted: true, verification: 'plausibility_checked', awarded: false, score: recorded.verified_score, trophiesEarned: 0 })
 })
 
 app.get('/api/quests', async (c) => {

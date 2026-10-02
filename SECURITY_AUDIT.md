@@ -36,3 +36,12 @@ Updated: 2026-10-02
 - Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
 - Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
 - Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.
+
+## Continuation security review — 2026-10-02
+
+- Verified the new run path in staging: normal bounded evidence accepted; same-token replay and altered-evidence replay returned 409; quest claim succeeded once and returned 409 on duplicate.
+- Invalid run credentials and malformed evidence are rejected and recorded as reason codes. Reused-run logging stores hashes/reason codes, never raw bearer tokens. Database writes for accepted run/progression are atomic in one SQL statement.
+- Staging CSRF, exact-origin CORS, session cookies, request limits, and mocked Cloudflare limiter rejection were covered by existing checks. The Cloudflare Rate Limiting binding is configured at 60/60s; measured traffic did not reliably trigger 429, so this is not reported as a proven live threshold.
+- Residual: evidence remains client generated, and no deterministic replay validates the actual game state. The score ceiling is an input-count plausibility rule only. `GAME_REPLAY_ENABLED` remains false and no game-run trophies are directly awarded.
+- Reward-ad, Resend, MyLead PPI/CPA, and Hilltop payouts remain disabled until real server-verifiable provider configuration exists. Secrets remain server-side.
+- The existing Expo game bundle was exported and served via the staging Worker's existing asset binding. The modified embedded game-over path suppresses the unrelated original source-game offers and utility controls; this does not change game rules or trust client scores.

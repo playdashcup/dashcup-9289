@@ -4,11 +4,11 @@ const CYCLE_ANCHOR = Date.parse('2026-01-05T00:00:00.000Z')
 const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 
 export const QUESTS = [
-  { period: 'daily', type: 'play_1', target: 1, reward: 100, title: 'Play one verified game', description: 'Finish a replay-verified game today.' },
-  { period: 'daily', type: 'play_5', target: 5, reward: 500, title: 'Play five verified games', description: 'Finish five replay-verified games today.' },
+  { period: 'daily', type: 'play_1', target: 1, reward: 100, title: 'Play one validated game', description: 'Finish one game that passes session and evidence checks today.' },
+  { period: 'daily', type: 'play_5', target: 5, reward: 500, title: 'Play five validated games', description: 'Finish five games that pass session and evidence checks today.' },
   { period: 'daily', type: 'new_pb', target: 1, reward: 1_000, title: 'Set a new personal best', description: 'Beat your personal best today.' },
   { period: 'daily', type: 'sponsor_app', target: 1, reward: 20_000, title: 'Complete a sponsor offer', description: 'Complete one verified sponsor, CPI, or PPI event.' },
-  { period: 'weekly', type: 'play_20', target: 20, reward: 2_500, title: 'Play twenty verified games', description: 'Finish twenty replay-verified games this week.' },
+  { period: 'weekly', type: 'play_20', target: 20, reward: 2_500, title: 'Play twenty validated games', description: 'Finish twenty games that pass session and evidence checks this week.' },
   { period: 'weekly', type: 'pb_3_days', target: 3, reward: 5_000, title: 'Set personal bests on three days', description: 'Earn a personal best on three distinct UTC days.' },
   { period: 'weekly', type: 'ref_2', target: 2, reward: 3_000, title: 'Invite two players', description: 'Two invited players must each finish a verified game.' },
   { period: 'weekly', type: 'ppi_3', target: 3, reward: 30_000, title: 'Complete three PPI offers', description: 'Complete three verified PPI conversions.' },
@@ -44,6 +44,9 @@ export function validateEvidence(value: { clientScore?: unknown; durationMs?: un
   // In the actual engine, each SWIPE_UP can advance score by at most one;
   // side/down moves and moving entities never increment the row score.
   const forwardMoves = inputs.reduce((count, input) => count + ((input as Record<string, unknown>).key === 'SWIPE_UP' ? 1 : 0), 0)
+  // Starting an Expo run emits the engine's initial forward move. A run with
+  // no forward input cannot represent a started ChickenDash game.
+  if (forwardMoves === 0) return 'NO_FORWARD_INPUT'
   if (Number(clientScore) > forwardMoves) return 'SCORE_EXCEEDS_FORWARD_INPUTS'
   return null
 }

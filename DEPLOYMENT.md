@@ -47,3 +47,15 @@ Game CI uses Bun in games/expo-crossy-road: bun install --frozen-lockfile; bunx 
 - Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
 - Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
 - Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.
+
+## Current verified deployment — 2026-10-02
+
+- Existing Pages project and frontend were preserved. `https://dashcup.com`, `https://www.dashcup.com`, `https://dashcup.com/manifest.webmanifest`, and `https://www.dashcup.com/sw.js` each returned HTTP 200.
+- Existing staging Worker was deployed, not replaced: `https://dashcup-9289-staging.play-dashcup.workers.dev`, version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849`. Wrangler reports the existing account and staging rate-limit binding `60 requests / 60 seconds`; provider-specific live throttling remains unproven.
+- Neon project `bitter-mode-91626896`, staging branch `br-empty-cherry-b4mxu4la`: health query succeeded. No production migration or production secret change was made.
+- Staging integration verified one-time game session submission, plausibility checks, duplicate/tampered replay rejection, daily/weekly play and PB progression, qualifying referral progress, and idempotent quest claim behavior.
+- `api.dashcup.com` and `game.dashcup.com` do not resolve as of this check. Production custom domains and Worker deployment remain pending.
+- Pages was not rebuilt. The existing GameBridge source has the requested `5x Reward` text, but the published site does not receive that edit until a Pages deployment is allowed.
+- Reward email, rewarded-ad payouts, and MyLead/Hilltop-dependent rewards remain disabled until their real external configurations are verified. See `BLOCKERS.md` for remaining release gates.
+- The exported Expo game build was served through the existing staging Worker; this is a game asset update, not a Pages/frontend rebuild.
+- Latest staging smoke after the Expo asset refresh: API health/database, no-store response, allowed CORS preflight, denied-origin CORS, missing-CSRF rejection, game index, and the 2.16 MB Expo JS bundle passed.

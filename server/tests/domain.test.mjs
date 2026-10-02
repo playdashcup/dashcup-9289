@@ -93,6 +93,8 @@ test('bounds evidence and rejects scores unsupported by the recorded forward inp
   assert.equal(validateEvidence({ ...valid, inputs: Array(2_001).fill(valid.inputs[0]) }), 'INVALID_INPUT_COUNT')
   assert.equal(validateEvidence({ ...valid, clientScore: 5 }), 'SCORE_EXCEEDS_FORWARD_INPUTS')
   assert.equal(validateEvidence({ ...valid, clientScore: Number.MAX_SAFE_INTEGER + 1 }), 'INVALID_SCORE')
+  assert.equal(validateEvidence({ ...valid, inputs: [] }), 'NO_FORWARD_INPUT')
+  assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_LEFT', at: 100 }] }), 'NO_FORWARD_INPUT')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'HACK', at: 0 }] }), 'INVALID_INPUT')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: -1 }] }), 'INVALID_INPUT_SEQUENCE')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 10_001 }] }), 'INVALID_INPUT_SEQUENCE')

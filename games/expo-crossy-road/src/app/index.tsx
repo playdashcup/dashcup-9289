@@ -225,7 +225,9 @@ class Game extends Component {
   };
 
   renderGameOver = () => {
-    if (this.state.gameState !== State.Game.gameOver) {
+    // The embedded ChickenDash bridge owns restart/reward controls. Suppress
+    // the source game's unrelated offer/settings/share/leaderboard footer.
+    if (this.state.gameState !== State.Game.gameOver || this.dashcupRun) {
       return null;
     }
 

@@ -51,3 +51,20 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
 - Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
 - Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.
+
+## Continuation update — 2026-10-02
+
+- Preserved `codex/dashcup-rebuild` at starting HEAD `9f4c05d8df36c1bb00aa1ab18db3b12896ed184a`; no reset or replacement worktree.
+- Added practical evidence checks: valid UUID/run-token format, at least one forward move (the Expo game emits one when a run starts), bounded ordered inputs, score no greater than recorded forward moves, and max run duration. Replay attempts are logged with reason codes and evidence hashes; raw run tokens are never logged.
+- Made one-time run consumption, game-run insertion, and play/PB/referral quest progression a single PostgreSQL statement. Duplicate events cannot advance progress twice. This is plausibility validation, not deterministic replay or authoritative reconstruction of the game engine.
+- Staging deployed at `https://dashcup-9289-staging.play-dashcup.workers.dev`, version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849`; Neon staging health reports connected.
+- Staging HTTP integration: health/database true; game end 200 with `plausibility_checked`; same-token replay 409; changed-evidence replay 409; play_1, new_pb, pb_3_days and inviter ref_2 advanced; quest claim 200 and duplicate claim 409. Assets responded 200.
+- Worker tests 11/11, Worker typecheck, staging dry-run, and root lint pass. Frontend production build was not run and Pages was not redeployed.
+- Edited the existing game bridge source to show the exact `5x Reward` label and non-replay copy. This source edit is not live until Pages is rebuilt; the existing published Pages deployment remains untouched.
+- Apex, www, manifest, and service worker returned HTTP 200. `api.dashcup.com` and `game.dashcup.com` do not resolve yet.
+- Browser E2E retry failed at CUA startup with `apply deny-read ACLs`; no browser E2E pass is claimed.
+- Production database and Worker remain unchanged. Replay is not treated as a release blocker. Resend, rewarded payout, and external CPI/PPI/CPA rewards remain disabled pending verified provider configuration.
+- Follow-up game export preserved the Expo gameplay and applied the embedded end-screen simplification: the existing source game's offers, settings, share, and leaderboard footer are hidden while running inside the authenticated ChickenDash bridge; the parent Start/Restart/5x Reward controls and game scoreboard remain. The original standalone game screen remains unchanged.
+- Expo web export completed (2.16 MB JS bundle) and the existing staging Worker was redeployed with the new game bundle as version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849`. Next.js/Pages was not rebuilt or redeployed.
+
+- Final version `c7d9b2d7-e0a5-40d3-8c8d-af4652864849` staging smoke: `/api/health` 200 with database connected and `Cache-Control: no-store`; allowed preflight 204; denied origin 403; missing CSRF 403; game index and Expo bundle 200 (2,162,206 bytes).

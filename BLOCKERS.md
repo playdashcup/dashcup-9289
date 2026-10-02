@@ -44,3 +44,15 @@ Updated: 2026-10-02
 - Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
 - Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
 - Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.
+
+## Continuation blockers — 2026-10-02
+
+- Browser E2E remains blocked: the single permitted retry exited before browser setup with `windows sandbox failed: helper_unknown_error: apply deny-read ACLs`. HTTP integration checks were used; no browser result is claimed.
+- Public `api.dashcup.com` and `game.dashcup.com` currently fail DNS resolution. Add the exact Worker custom-domain records/configuration after production release gates are met; no target was fabricated.
+- Production Neon is not migrated and the production Worker is not deployed. The staging API flow is now verified for practical evidence checks, play/PB progress, referral qualification, and duplicate claims. Continue remaining security/integration gates before production.
+- Production game UI has not been refreshed: the existing source now says `5x Reward`, but Pages was intentionally not rebuilt. Current published frontend still reflects its previous build.
+- MyLead PPI/CPA and sponsor quest completion remain disabled until the actual callback verification contract and credentials are available. Hilltop remains disabled without a real banner placement ID. Monetag configuration is present but live behavior has not been verified.
+- Resend reward delivery remains disabled until the sending domain/sender, Worker secrets, webhook signing, and a controlled send are verified in the connected account.
+- Canonical Bun audit was not rerun in this continuation because dependency manifests and `bun.lock` were unchanged. Existing reviewed state remains 8 findings (7 high, 1 moderate); the remaining findings and Expo compatibility constraints are recorded above.
+- Deterministic replay is explicitly not required for this release. Scores are only plausibility-checked against bounded input evidence; this does not prove the actual game score.
+- Production schema migration and production Worker release remain pending. Neon’s migration workflow requires explicit user approval after reviewing its prepared production migration; no production data/schema has been changed.

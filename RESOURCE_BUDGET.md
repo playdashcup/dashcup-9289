@@ -27,3 +27,11 @@ Updated: 2026-10-02
 - Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
 - Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
 - Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.
+
+## Resource/dependency update — 2026-10-02
+
+- No additional infrastructure was created. Existing single Worker, Pages project, Neon project, and staging rate-limit binding are reused. No D1/KV/R2/Redis/Durable Objects/second Worker was added.
+- Staging database operations used the existing Neon staging branch. Production database and Worker were not modified.
+- Worker tests 11/11, Worker TypeScript check, Wrangler staging dry-run, and frontend lint passed. No frontend production build was run.
+- Canonical Bun lockfile and package manifests were unchanged; the previously reviewed Bun audit remains 7 high and 1 moderate. Bun audit was not rerun in this continuation.
+- Browser-tool initialization remains unavailable due the Windows `apply deny-read ACLs` error; no browser E2E or visual playtest cost/result is claimed.

@@ -37,3 +37,13 @@ Audit date: 2026-10-02
 - Shared rate-limit decision helper is used by the Worker; added test verifies a rejected binding result returns HTTP 429 with `RATE_LIMITED`. Worker tests now pass 11/11 and Worker typecheck passes.
 - Latest redeploy of the existing staging Worker is version `b5015c4f-de67-42ca-96a4-011f7ca301db`; no game assets changed. Staging health confirms `ok=true`, environment `staging`, and database connected. Replay/email flags remain false.
 - Live probe saw 140 successful health responses (70 concurrent, 70 sequential), without a 429. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent; live throttle outcome remains unverified. No production Worker or DB changes.
+
+## Practical anti-cheat and progression audit — 2026-10-02
+
+- Game end requires an authenticated session, a server-issued run ID/token, token hash match, unexpired and unused run, valid UUID/token format, bounded input count, allowed move enums, ordered timestamps with at least 50 ms spacing, duration no greater than 180 seconds, a forward move, and client score no greater than recorded `SWIPE_UP` inputs.
+- Evidence uses a SHA-256 hash. Run token consumption, `game_runs` insertion, and game/PB/referral quest progression run in one Neon statement. Unique run IDs, one-time token consumption, referral referee uniqueness, PB day uniqueness, and conditional referral qualification make duplicate events idempotent.
+- Failed run retries are recorded as suspicious with evidence hashes and bounded reason codes. Plain run tokens are not persisted in logs.
+- Staging verified daily play, PB, weekly PB-day, and referral progression; duplicate claims are rejected after the first successful claim.
+- This only checks plausible client evidence. It does not replay the game engine or establish a trustworthy score. No deterministic replay or perfect score verification is claimed. The browser remains capable of fabricating structurally plausible input evidence; this is a residual risk until a trusted gameplay signal exists.
+- Provider-controlled sponsor/PPI/CPA quest events remain disabled without an authenticated provider callback contract. No client endpoint can set provider quest progress.
+- Embedded Expo game now suppresses the original promotional/utility game-over footer while the bridge run is active. Standalone source behavior remains intact; the scoreboard and parent controls are retained.
