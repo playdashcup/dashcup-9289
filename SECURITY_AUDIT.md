@@ -25,3 +25,9 @@ Updated: 2026-10-02
 - Canonical Bun 1.4.2 audit reports 8 advisories (7 high, 1 moderate, no critical) after safe updates, compatible overrides, removing unused EAS CLI, and upgrading GSAP to v3. Remaining findings include `node-forge` (no published safe version), Expo Metro's `image-size` 2.x incompatibility, and `uuid`; delivery remains gated pending triage.
 - Current local rerun: frontend lint/build, Worker TypeScript, 10 unit tests, both Wrangler dry-runs, direct game ESLint (0 errors, 68 warnings), and Expo web export pass. Wrangler authentication is absent, so no Worker/API deployment or staging/browser E2E has run. No Worker or api/game DNS records are available.
 - Disable-devtool deterrence, obfuscation and CSP policy are not claimed as implemented. These are deterrence measures and do not replace server validation.
+
+## Live staging check (2026-10-02)
+- Wrangler authenticated; only staging Worker `dashcup-9289-staging` deployed. Neon staging `DATABASE_URL` is stored as Cloudflare `secret_text`; its value was not emitted. No production secret/deploy/migration occurred.
+- Staging health confirmed database connectivity. Bootstrap/session and `/api/me` succeeded; allowed-origin preflight returned 204, disallowed origin 403, invalid CSRF 403; game start succeeded with bootstrap CSRF and game end returned pending/score zero/trophies zero. Static index and a texture asset returned 200.
+- Browser cookie/iframe E2E is not verified: CUA trusted Node initialization fails with workspace ACL startup error. A 70 concurrent + 70 sequential request probe saw no 429; Cloudflare documents the Worker binding as a permissive per-location/per-machine counter, so intended throttle behavior remains unverified. API checks do not substitute for browser testing.
+- Replay and reward email remain disabled; no client score is awarded. Do not deploy production before replay/progression and browser release gates pass.

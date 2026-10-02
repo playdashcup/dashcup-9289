@@ -32,3 +32,10 @@ Updated: 2026-10-02
 - Authenticate Wrangler in the project workspace (or provide deployment credentials through the approved CI environment), then configure staging secrets and deploy/test staging before production. Keep using the existing active zone; do not create a duplicate.
 - Add/verify the Resend sending domain and its DNS records later.
 - Provide MyLead callback signing/configuration and Hilltop placement ID if those products should serve ads/offers.
+
+## Live continuation state (2026-10-02; authoritative over older status bullets)
+- Staging Worker `dashcup-9289-staging` is deployed at https://dashcup-9289-staging.play-dashcup.workers.dev, version `6aef8761-d60c-4470-a024-509679ece2b8`. Wrangler is authenticated. Staging `DATABASE_URL` secret is configured from Neon project `bitter-mode-91626896`, branch `dashcup-staging` (`br-empty-cherry-b4mxu4la`).
+- Existing Pages apex and www domains, manifest and service worker return HTTPS 200. Cloudflare confirms active zone, existing Pages project, and proxied apex/www CNAME records to the Pages hostname.
+- Staging API smoke passed for health/database, bootstrap/session, me, quests, leaderboard, referral link, reward status, CORS preflight/denial, CSRF rejection and valid-CSRF game start/end; game end is pending and awards zero. `/index.html` and a texture asset return 200. A 70-concurrent plus 70-sequential request probe observed only 200s and no 429; Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent, so throttling remains unverified.
+- Remaining gates: browser E2E (CUA exits on `apply deny-read ACLs`), deterministic replay (server seed unused; random game generation and time-dependent movement), quest/referral progress writers, signed MyLead callbacks, Bun audit triage, production custom domains, production migration/deploy. Do not direct production API/game domains to staging.
+- No production database changes or production Worker deploy occurred. No personal Wrangler action is needed for staging.

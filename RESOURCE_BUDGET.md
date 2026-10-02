@@ -17,3 +17,8 @@ Updated: 2026-10-02
 - The stable Cloudflare Pages project URL https://dashcup-9289.pages.dev is live. The zone is active; `www` CNAME is configured and public DNS/HTTPS return success. No Worker is deployed; api/game records are absent; no production API/game usage has been measured. Local Worker dry-runs pass, but Wrangler is unauthenticated.
 - No live cost or provider billing data was retrieved. No cost estimate is asserted.
 - Production usage, Neon compute, Worker requests, Pages bandwidth and email quotas remain unmeasured.
+
+## Live continuation update (2026-10-02)
+- One existing Pages project and one Worker script are in use; only the staging Worker is deployed. No additional Cloudflare storage/service was created.
+- Staging Worker `dashcup-9289-staging`, version `6aef8761-d60c-4470-a024-509679ece2b8`; Wrangler reported 136 assets uploaded, 303.87 KiB total / 79.45 KiB gzip, and 45.89 seconds. These are deployment/upload measurements, not billing data.
+- Staging Neon connection configured as Worker secret; production untouched. API checks were limited except a session/game-start/game-end test that awarded zero. Rate-limit probe sent 70 concurrent and 70 sequential health requests (all 200; no 429 observed). No live billing or cost claim is made.

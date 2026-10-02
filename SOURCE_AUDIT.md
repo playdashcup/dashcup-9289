@@ -26,3 +26,9 @@ Audit date: 2026-10-02
 - Resend client/template are implemented but sending is gated by server secrets and a verified sender. Current Resend inventory lists dashcup.com as not_started; mail.dashcup.com is not listed.
 - MyLead signed conversion callback/account config is not implemented. Monetag user supplied a zone configuration, but live behavior is not independently verified. Hilltop banner placement ID was not provided; no placement is fabricated.
 - Cloudflare API now reports the existing zone active, with the assigned nameservers, and no Worker scripts. Pages remains connected and deployed; `www` DNS/HTTPS are verified. `api.dashcup.com` and `game.dashcup.com` DNS records are absent until the single Worker is deployed. Wrangler CLI is unauthenticated. The apex A record points unproxied to `127.0.0.1` and is not considered a verified site route.
+
+## Live deployment recheck (2026-10-02)
+- Cloudflare confirms active existing `dashcup.com` zone; existing Pages project `dashcup-9289` has project hostname, apex, and www domains. Apex/www proxied CNAMEs target the existing Pages project. Apex, www, manifest and `/sw.js` returned 200.
+- Existing Worker is deployed to staging script `dashcup-9289-staging`, version `6aef8761-d60c-4470-a024-509679ece2b8`; staging Neon secret configured. Production not deployed.
+- Staging API/data health, bootstrap/session, quest catalog, leaderboard, referral link, reward status and game assets returned expected responses. CORS/CSRF checks passed; game end remained pending with zero awards.
+- Replay assessment remains unchanged: gameplay has multiple unseeded `Math.random` sources, frame/time-dependent movement/collisions, and does not consume the server seed. No deterministic replay is verified.

@@ -35,3 +35,10 @@ The code uses the redemption UUID as Resend Idempotency-Key and stores accepted,
 Frontend: pnpm install --frozen-lockfile, pnpm lint, pnpm build.
 Worker: cd server; pnpm install --frozen-lockfile; pnpm test; pnpm typecheck; pnpm exec wrangler deploy --dry-run.
 Game CI uses Bun in games/expo-crossy-road: bun install --frozen-lockfile; bunx expo lint; bunx expo export -p web --output-dir ../../server/game-dist.
+
+## Live continuation status (2026-10-02; supersedes older deployment status)
+- Existing Pages project `dashcup-9289` remains the frontend source of truth. Cloudflare confirms active `dashcup.com` zone, Pages domains `dashcup-9289.pages.dev`, apex, and www, and proxied apex/www CNAMEs to the existing Pages hostname. Apex, www, manifest, and service worker returned HTTPS 200.
+- Wrangler authenticated and deployed the existing Worker config to staging only: script `dashcup-9289-staging`, https://dashcup-9289-staging.play-dashcup.workers.dev, version `6aef8761-d60c-4470-a024-509679ece2b8`. Replay and reward email remain disabled.
+- Staging Neon `DATABASE_URL` is stored as a Worker secret from project `bitter-mode-91626896`, branch `dashcup-staging` (`br-empty-cherry-b4mxu4la`). No production secret/migration was applied.
+- Staging API/asset checks are detailed in BUILD_REPORT.md. Browser E2E did not run because CUA initialization exits; rate-limit outcome is unverified.
+- Do not deploy production or bind production `api.dashcup.com`/`game.dashcup.com` yet. Remaining release gates: browser E2E, actual deterministic replay/tests, quest/referral event progression, trusted provider callbacks and Bun audit triage. After staging passes, migrate production Neon from existing migrations, verify schema, configure production secrets, deploy the existing single Worker, then validate Cloudflare custom domains/TLS.

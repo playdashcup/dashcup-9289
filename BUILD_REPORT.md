@@ -37,3 +37,12 @@ Updated: 2026-10-02
 
 ## Deployment
 The Pages production build and `www.dashcup.com` are available and verified. The existing Cloudflare zone is active and its `www` CNAME is configured, but no Worker is deployed and local Wrangler is unauthenticated. Staging Worker deployment, Worker secrets, quest progression, replay, and staged smoke tests remain outstanding. See DEPLOYMENT.md and BLOCKERS.md.
+
+## Live continuation update (2026-10-02; supersedes earlier deployment status)
+- Branch `codex/dashcup-rebuild`; HEAD at start of this update: `5c266a7bff07398c06eda34b0f50beb4c0974548`. Existing implementation and Pages frontend preserved; no Pages rebuild or replacement performed.
+- Wrangler authenticated; existing staging Worker `dashcup-9289-staging` deployed at https://dashcup-9289-staging.play-dashcup.workers.dev, version `6aef8761-d60c-4470-a024-509679ece2b8`. Replay and reward-email flags remain false.
+- Neon staging `DATABASE_URL` is configured as a Cloudflare secret from project `bitter-mode-91626896`, branch `dashcup-staging` (`br-empty-cherry-b4mxu4la`). Plaintext was not emitted. Production database and Worker remain untouched.
+- Fresh HTTPS checks: apex, www, `/manifest.webmanifest`, `/sw.js` all returned 200. Cloudflare confirms the active existing zone and Pages project with proxied apex/www CNAME records targeting `dashcup-9289.pages.dev`.
+- Staging health/database, bootstrap/session, `/api/me`, quests, leaderboard, referral link, reward status, allowed-origin preflight, denied-origin rejection, invalid-CSRF rejection, `/index.html`, and a game texture asset passed. Valid-CSRF game start returned 200; game end returned 202 pending with zero score/trophies because replay is unavailable. Rate-limit stress check sent 70 concurrent then 70 sequential requests to `/api/health`; all returned 200, no 429 observed. Cloudflare documents this binding as per-location/per-machine and permissive/eventually consistent, so the requested throttle outcome remains unverified.
+- Browser E2E remains blocked because CUA trusted Node initialization exits with `apply deny-read ACLs`. No API/game custom domains or production deployment were created. Production migration remains gated.
+- Actual source still has unseeded random gameplay generation and time/frame-dependent movement. Seed is not consumed; replay incomplete/disabled. Quest/referral progression and signed provider callbacks remain incomplete. Canonical Bun audit remains 8 advisories (7 high, 1 moderate).
