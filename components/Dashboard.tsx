@@ -106,7 +106,7 @@ export function Dashboard() {
 
         {error && <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200"><span>{error}</span><button onClick={() => { setBooting(true); void loadData() }} className="font-bold underline">Try again</button></div>}
         {booting ? <div className="grid min-h-[440px] place-items-center rounded-3xl border border-white/10 bg-white/[0.025]"><div className="text-center"><div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-cyan-300/20 border-t-cyan-300" /><p className="font-mono text-xs uppercase tracking-widest text-zinc-500">Syncing DASHCUP</p></div></div> : <>
-          {active === 'arcade' && <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.35fr_.65fr]"><GameBridge onComplete={onGameComplete} /><ReferralPanel referralUrl={referral?.referralUrl ?? null} onViewQuests={() => setActive('quests')} /></div>}
+          {active === 'arcade' && <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[1.35fr_.65fr]"><GameBridge onComplete={onGameComplete} /><ReferralPanel referralUrl={referral?.referralUrl ?? null} onViewQuests={() => setActive('quests')} /></div>}
           {active === 'quests' && <QuestBoard quests={quests} onClaimed={onQuestClaimed} />}
           {active === 'leaderboard' && <Leaderboard data={leaderboard} onRetry={async () => setLeaderboard(await api.getLeaderboard())} />}
           {active === 'rewards' && <RewardPanel eligibility={eligibility} me={me} onDetailsSaved={onRewardDetailsSaved} />}

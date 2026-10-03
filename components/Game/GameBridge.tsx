@@ -105,7 +105,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
   }
 
   return (
-    <section className="overflow-hidden rounded-[2rem] border-[3px] border-[#78eaff] bg-gradient-to-br from-[#252b59] via-[#171c43] to-[#292052] shadow-[0_12px_0_#090d22,0_24px_55px_rgba(4,7,24,.45)]">
+    <section className="min-w-0 overflow-hidden rounded-[2rem] border-[3px] border-[#78eaff] bg-gradient-to-br from-[#252b59] via-[#171c43] to-[#292052] shadow-[0_12px_0_#090d22,0_24px_55px_rgba(4,7,24,.45)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-white/10 bg-white/[0.045] px-4 py-3 sm:px-5 sm:py-4">
         <div className="flex items-center gap-3">
           <div className="grid size-11 place-items-center rounded-2xl border-2 border-[#192047] bg-gradient-to-br from-[#8df7ff] to-[#45cfe9] text-[#182044] shadow-[0_4px_0_#278ca8]"><Gamepad2 className="size-5" /></div>
