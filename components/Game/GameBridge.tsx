@@ -113,7 +113,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
         </div>
         <span className="rounded-full border-2 border-[#354065] bg-[#b9ff69]/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#c9ff87] shadow-[0_3px_0_#101832]">Evidence checks active</span>
       </div>
-      <div className="relative mx-auto aspect-[4/3] w-full bg-[#080c24] p-2 sm:p-3">
+      <div className="relative mx-auto aspect-[9/16] w-full bg-[#080c24] p-2 sm:p-3 md:aspect-video">
         <div className="absolute inset-2 overflow-hidden rounded-2xl border-[3px] border-[#111735] bg-[#050609] shadow-[inset_0_0_0_2px_rgba(255,255,255,.08),0_5px_0_#090d20] sm:inset-3">
           <iframe ref={iframeRef} src={`${GAME_ORIGIN}/?parentOrigin=${encodeURIComponent(typeof window === 'undefined' ? '' : window.location.origin)}`} title="ChickenDash" className="size-full border-0" allow="autoplay; fullscreen" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(5,6,9,.3))]" />

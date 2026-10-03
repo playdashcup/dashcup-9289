@@ -125,7 +125,8 @@ export class CrossyCamera extends OrthographicCamera {
     this.right = width * scale;
     this.top = height * scale;
     this.bottom = -(height * scale);
-    this.zoom = 400;
+    // Keep the playable field visible in the responsive 16:9/9:16 frames.
+    this.zoom = 200;
     this.updateProjectionMatrix();
   };
 }

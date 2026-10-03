@@ -33,7 +33,7 @@ export default class RailRoad extends Object3D {
     const width = this.getWidth(this._trainMesh);
     this.train = {
       mesh: this._trainMesh,
-      speed: 0.8,
+      speed: 0.72,
       width,
       collisionBox: this.heroWidth / 2 + width / 2 - 0.1,
     };
