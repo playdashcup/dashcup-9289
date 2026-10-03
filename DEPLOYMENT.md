@@ -153,3 +153,11 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - The Expo bundle now imports the GSAP compatibility names used by the game, fixes the initial move timing race, retries the iframe handshake safely, and gates web audio until a gesture in the iframe.
 - Live production browser Start reached gameplay with score 1; production health reports Neon connected. Staging confirmed score 1 → 1 trophy and duplicate-end 409.
 - Repair source commits and follow-up deployment documentation are pushed on `codex/dashcup-rebuild`.
+
+## Anti-cheat telemetry release (2026-10-03)
+
+- Worker `dashcup-9289` production version `da81baae-b14b-4961-9e4e-a084924cba2c` is active on `api.dashcup.com` and `game.dashcup.com`; staging version is `1ba67064-d21d-4326-8886-638c9bf3e3cc`.
+- Existing Pages project `dashcup-9289` deployed source commit `4f0986b` as active deployment `2ded517f-db0c-4de8-9289-41a721d0e549`.
+- Production health reports Neon connected; game asset responds 200 and credentialed CORS allows `https://www.dashcup.com`.
+- Staging verified bootstrap, CSRF rejection, start/end, sanitized client signals, and duplicate end rejection (409). No production game-end submission was made.
+- Replay remains disabled (`GAME_REPLAY_ENABLED=false`); Resend and reward payouts remain disabled.
