@@ -189,3 +189,13 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - The counter is a per-browser ad frequency preference only. It does not affect identity, score, trophies, quests, or payouts. Rewarded-ad payouts remain disabled.
 - No Worker, Neon, schema, dependency, or infrastructure changes were made. The IMA/VAST provider receives network requests only when a 15-run threshold is reached.
 - Validation on this working tree: `pnpm lint` passed and `pnpm build` passed. Actual provider fill/playback and live deployment have not yet been verified.
+
+## Lightweight client anti-cheat continuation (2026-10-03)
+
+- Current base: `a95a25d3d57336d7bd4311d1fee5621061993ab9` on `codex/dashcup-rebuild`; changes in this section are in the current working tree pending commit/push.
+- Added event-driven local input burst, score velocity, short-run score, movement, state integrity/transition, focus, devtools-shortcut, and rapid-reset signals. These flags are deterrence/telemetry only and never determine score, trophy, quest, or reward eligibility.
+- Telemetry is bounded and attached to the existing `/api/game/end` request. The Worker allow-lists flags and persists them on the same one-use game-session update; no endpoint, migration, Worker/Neon call, or additional query/write was added.
+- `playdashcup/disable-devtool` is not installed or referenced in the repository. It was not added; the requested lightweight policy permits deterrence only when a dependency already exists and excludes invasive polling/browser restrictions. Shortcut detection is event-based and does not block controls.
+- Verification: Worker tests 17/17, Worker typecheck, frontend lint/build, Expo lint (0 errors; 68 existing warnings), and staging Wrangler deployment pass. Staging health/database, bootstrap, CSRF rejection, start/end, game asset, and duplicate end (409) pass. The staging test awarded only its disposable 1-trophy test run.
+- Browser E2E for the changed Pages frontend was not completed. Production website rendering was checked, but no production gameplay session was submitted. Direct navigation to the staging Worker's game asset returns a blank viewport in the available in-app browser, so that is not counted as gameplay verification.
+- Staging Worker version: `1ba67064-d21d-4326-8886-638c9bf3e3cc`; existing production Worker version: `da81baae-b14b-4961-9e4e-a084924cba2c`. The existing Pages project has not yet received the bridge change.

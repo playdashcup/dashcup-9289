@@ -3,7 +3,7 @@ import test from 'node:test'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { isExpensiveMutation, isRateLimited, rateLimitKey } from '../src/security/rate-limit.ts'
-import { biweeklyId, dayId, QUESTS, randomDisplayName, validateEvidence, weekId } from '../src/domain.ts'
+import { biweeklyId, dayId, QUESTS, randomDisplayName, sanitizeClientSignals, validateEvidence, weekId } from '../src/domain.ts'
 import { constantTimeStringEqual } from '../src/security/timing-safe.ts'
 import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '../src/security/reward-code.ts'
 import { rewardEmailTemplate } from '../src/email/reward-template.ts'
@@ -127,6 +127,27 @@ test('bounds evidence and rejects scores unsupported by the recorded forward inp
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 10_001 }] }), 'INVALID_INPUT_SEQUENCE')
   assert.equal(validateEvidence({ ...valid, inputs: [{ type: 'move', key: 'SWIPE_UP', at: 20 }, { type: 'move', key: 'SWIPE_DOWN', at: 69 }] }), 'INVALID_INPUT_SEQUENCE')
   assert.equal(validateEvidence({ ...valid, inputs: Array.from({ length: 17 }, (_, index) => ({ type: 'move', key: 'SWIPE_UP', at: index * 55 })) }), 'IMPOSSIBLE_INPUT_DENSITY')
+})
+
+test('bounds client anti-cheat signals and ignores client-reported suspicion scores', () => {
+  assert.deepEqual(sanitizeClientSignals({
+    suspicionScore: 0,
+    inputCount: 99,
+    focusChanges: 900,
+    flags: ['input_burst', 'devtools_shortcut', 'made_up_flag', 'input_burst'],
+  }, 4), {
+    flags: ['input_burst', 'devtools_shortcut', 'input_count_mismatch'],
+    suspicionScore: 39,
+    inputCount: 4,
+    focusChanges: 100,
+  })
+  assert.deepEqual(sanitizeClientSignals({ flags: Array(100).fill('state_integrity'), focusChanges: -1 }, 0), {
+    flags: ['state_integrity'],
+    suspicionScore: 30,
+    inputCount: 0,
+    focusChanges: 0,
+  })
+  assert.deepEqual(sanitizeClientSignals(null, 2), { flags: [], suspicionScore: 0, inputCount: 2, focusChanges: 0 })
 })
 
 test('encrypts reward codes with AES-256-GCM, authenticates category, and fingerprints duplicates', async () => {

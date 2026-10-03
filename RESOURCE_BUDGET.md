@@ -121,3 +121,10 @@ Updated: 2026-10-02
 - Accepted-run frequency is stored in browser `localStorage` (with an in-memory page-session fallback). This is only ad pacing, is not identity/progression, and is not used to grant trophies or rewards. The interval is per browser profile, not account-wide.
 - This adds no Worker calls, Neon queries/writes, API endpoints, database objects, dependencies, or infrastructure. Each due ad attempt does incur third-party IMA/VAST network requests.
 - `pnpm lint` and `pnpm build` pass for this frontend change. No live ad playback, fill, or revenue was verified.
+
+## Lightweight anti-cheat resource impact (2026-10-03)
+
+- Client monitoring runs only on existing key/input, score-update, game-state, focus, and visibility events; no frame polling, DOM scans, debugger loop, or during-play API request was added.
+- The existing game-end request now carries a small capped telemetry object. The Worker stores recognized flags in the existing one-use session update; there is no additional query, write, migration, endpoint, binding, provider call, or infrastructure resource.
+- Game lifecycle remains one start request and one bounded end request. Telemetry evidence remains capped by the existing 2,000 input limit.
+- No CPU/DAU load benchmark was run; no quantitative resource capacity claim is made.

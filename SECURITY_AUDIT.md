@@ -129,3 +129,10 @@ Updated: 2026-10-02
 - API start now aborts after 12 seconds and returns a visible recovery state. Parent retries use iframe `postMessage`; gameplay adds no per-input network requests.
 - A live production browser click started the game and showed score 1. The smoke run was not ended, so it made no production score/trophy write. Staging separately confirmed score 1 → 1 trophy and duplicate-end 409.
 - Web audio is gated until a user gesture inside the iframe. No score validation or reward authority moved to the client.
+
+## Client telemetry update (2026-10-03)
+
+- Lightweight client anti-cheat signals now observe input cadence, score growth, coarse movement targets, state shape/transitions, focus/visibility changes, shortcut events, and rapid restarts. These are client-controlled and are not a trusted boundary.
+- The API allow-lists and bounds signal fields and records recognized flags in the existing game's `suspicion_flags` column during the same atomic run-consumption update. The client-provided score is ignored; the server recalculates a bounded score from recognized flags. No decision about validation, trophies, quests, or rewards uses the telemetry.
+- No `disable-devtool` package was installed. The existing dependency was absent and the user's lightweight requirement excludes intrusive polling/interaction blocking; event-based shortcut signals are used instead.
+- Tests verify unknown flags are dropped, duplicates are removed, counts are server-derived, focus counts are capped, and client-reported suspicion scores are ignored.

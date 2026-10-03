@@ -9,6 +9,30 @@ import { Gamepad2, Play, RotateCcw } from 'lucide-react'
 
 const GAME_ORIGIN = process.env.NEXT_PUBLIC_GAME_ORIGIN || (process.env.NODE_ENV === 'development' ? 'http://localhost:8787' : 'https://game.dashcup.com')
 const ACCEPTED_RUNS_STORAGE_KEY = 'dashcup.hilltop-vast.accepted-runs.v1'
+const CLIENT_SIGNAL_WEIGHTS: Record<string, number> = {
+  input_burst: 24, score_velocity: 28, short_run_high_score: 24, movement_jump: 30,
+  invalid_state_transition: 20, state_integrity: 30, focus_change: 2,
+  devtools_shortcut: 3, rapid_reset: 12, input_count_mismatch: 12,
+}
+
+function safeClientSignals(value: unknown, actualInputCount: number, extraFlags: Set<string>) {
+  const telemetry = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+  const flags = new Set<string>([...extraFlags].filter((flag) => flag in CLIENT_SIGNAL_WEIGHTS))
+  if (Array.isArray(telemetry.flags)) {
+    for (const flag of telemetry.flags.slice(0, 10)) {
+      if (typeof flag === 'string' && flag in CLIENT_SIGNAL_WEIGHTS) flags.add(flag)
+    }
+  }
+  if (Number.isInteger(telemetry.inputCount) && telemetry.inputCount !== actualInputCount) flags.add('input_count_mismatch')
+  const suspicionScore = [...flags].reduce((sum, flag) => sum + CLIENT_SIGNAL_WEIGHTS[flag], 0)
+  const focusChanges = Number.isInteger(telemetry.focusChanges) ? Math.max(0, Math.min(100, Number(telemetry.focusChanges))) : 0
+  return {
+    suspicionScore: Math.min(100, suspicionScore),
+    flags: [...flags],
+    inputCount: actualInputCount,
+    focusChanges,
+  }
+}
 
 type GameState = 'idle' | 'starting' | 'playing' | 'finishing' | 'complete' | 'error'
 
@@ -26,6 +50,9 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
   const [result, setResult] = useState<{ score: number; trophies: number } | null>(null)
   const [vastAdAttempt, setVastAdAttempt] = useState<number | null>(null)
   const acceptedRunsRef = useRef(0)
+  const runStartTimesRef = useRef<number[]>([])
+  const pendingRunSignalsRef = useRef<Set<string>>(new Set())
+  const runSignalsRef = useRef<Set<string>>(new Set())
 
   const recordAcceptedRun = () => {
     let storedCount = 0
@@ -84,7 +111,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
         setState('finishing')
         try {
           // Read the ref only after all earlier postMessage input events have been processed.
-          const result = await api.endGame({ runId: activeRun.runId, runToken: activeRun.runToken, clientScore: Number(event.data.clientScore) || 0, durationMs: Number(event.data.durationMs) || 0, inputs: inputsRef.current.slice() })
+          const result = await api.endGame({ runId: activeRun.runId, runToken: activeRun.runToken, clientScore: Number(event.data.clientScore) || 0, durationMs: Number(event.data.durationMs) || 0, inputs: inputsRef.current.slice(), clientSignals: safeClientSignals(event.data.clientSignals, inputsRef.current.length, runSignalsRef.current) })
           runRef.current = null
           setResult({ score: result.score ?? 0, trophies: result.trophiesEarned })
           setState('complete')
@@ -112,6 +139,9 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
     }
     const onKeyDown = (event: KeyboardEvent) => {
       const key = directions[event.key]
+      if (runRef.current && ((event.key === 'F12') || ((event.ctrlKey || event.metaKey) && event.shiftKey && ['i', 'j', 'c'].includes(event.key.toLowerCase())) || (event.metaKey && event.altKey && ['i', 'j', 'c'].includes(event.key.toLowerCase())))) {
+        runSignalsRef.current.add('devtools_shortcut')
+      }
       if (!key || event.defaultPrevented) return
       const target = event.target
       if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
@@ -120,13 +150,27 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
       iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:move', key }, GAME_ORIGIN)
     }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    const onFocusChange = () => { if (runRef.current) runSignalsRef.current.add('focus_change') }
+    const onVisibilityChange = () => { if (document.visibilityState !== 'visible' && runRef.current) runSignalsRef.current.add('focus_change') }
+    window.addEventListener('blur', onFocusChange)
+    window.addEventListener('focus', onFocusChange)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('blur', onFocusChange)
+      window.removeEventListener('focus', onFocusChange)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [state])
 
   const start = async () => {
     setError(null); setResult(null); setState('starting'); inputsRef.current = []; runRef.current = null; finishingRunRef.current = null; acknowledgedRunRef.current = null; clearHandshake()
+    const now = performance.now()
+    runStartTimesRef.current = runStartTimesRef.current.filter((startedAt) => now - startedAt < 8_000)
+    runStartTimesRef.current.push(now)
+    pendingRunSignalsRef.current = new Set(runStartTimesRef.current.length >= 4 ? ['rapid_reset'] : [])
     try {
-      const newRun = await api.startGame(); runRef.current = newRun
+      const newRun = await api.startGame(); runRef.current = newRun; runSignalsRef.current = new Set(pendingRunSignalsRef.current)
       const sendStart = () => {
         if (gameReady.current && acknowledgedRunRef.current !== newRun.runId) {
           iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:start', ...newRun }, GAME_ORIGIN)

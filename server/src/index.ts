@@ -7,7 +7,7 @@ import { constantTimeStringEqual } from './security/timing-safe'
 import { rewardEmailTemplate } from './email/reward-template'
 import { sendRewardEmail } from './email/resend'
 import { isExpensiveMutation, isRateLimited, rateLimitKey } from './security/rate-limit'
-import { biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, randomDisplayName, validateEvidence, weekId } from './domain'
+import { biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, randomDisplayName, sanitizeClientSignals, validateEvidence, weekId } from './domain'
 
 interface Env {
   DATABASE_URL?: string
@@ -298,7 +298,7 @@ app.post('/api/game/end', async (c) => {
   const bytes = new Uint8Array(size)
   let offset = 0
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
-  let body: { runId?: string; runToken?: string; clientScore?: number; durationMs?: number; inputs?: unknown[]; website?: string }
+  let body: { runId?: string; runToken?: string; clientScore?: number; durationMs?: number; inputs?: unknown[]; website?: string; clientSignals?: unknown }
   try { body = JSON.parse(new TextDecoder().decode(bytes)) } catch {
     await logSuspiciousRun(c, null, 'INVALID_JSON_BODY', null)
     return c.json({ error: 'Invalid JSON body', code: 'INVALID_BODY' }, 400)
@@ -310,7 +310,7 @@ app.post('/api/game/end', async (c) => {
   const safeRunId = typeof body.runId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.runId) ? body.runId : null
   const canonical = JSON.stringify({ clientScore: body.clientScore, durationMs: body.durationMs, inputs: body.inputs })
   const evidenceHash = await sha256(canonical)
-  if (Object.keys(body).some((key) => !['runId', 'runToken', 'clientScore', 'durationMs', 'inputs', 'website'].includes(key))) {
+  if (Object.keys(body).some((key) => !['runId', 'runToken', 'clientScore', 'durationMs', 'inputs', 'website', 'clientSignals'].includes(key))) {
     await logSuspiciousRun(c, safeRunId, 'INVALID_EVIDENCE_SHAPE', evidenceHash)
     return c.json({ error: 'Run evidence has unexpected fields', code: 'INVALID_EVIDENCE' }, 422)
   }
@@ -329,6 +329,8 @@ app.post('/api/game/end', async (c) => {
     return c.json({ error: 'Run credential format is invalid', code: 'INVALID_EVIDENCE' }, 422)
   }
   const tokenHash = await sha256(body.runToken)
+  const clientSignals = sanitizeClientSignals(body.clientSignals, Array.isArray(body.inputs) ? body.inputs.length : 0)
+  const clientSignalFlagsJson = JSON.stringify(clientSignals.flags)
   const sql = sqlFor(c.env)
   // The only accepted game events are a one-time, unexpired server session and
   // bounded evidence whose score cannot exceed the game's recorded forward inputs.
@@ -337,7 +339,7 @@ app.post('/api/game/end', async (c) => {
   const dailyId = dayId(now)
   const weeklyId = weekId(now)
   const [recorded] = await sql`WITH consumed AS (
-      UPDATE game_sessions SET used_at=now(),suspicion_flags='{}'
+      UPDATE game_sessions SET used_at=now(),suspicion_flags=ARRAY(SELECT jsonb_array_elements_text(${clientSignalFlagsJson}::jsonb))
       WHERE run_id=${body.runId} AND user_id=${c.get('userId')} AND run_token_hash=${tokenHash}
         AND expires_at>now() AND used_at IS NULL
         AND extract(epoch FROM (now()-started_at))*1_000 >= ${body.durationMs}::double precision-${RUN_CLOCK_TOLERANCE_MS}::double precision

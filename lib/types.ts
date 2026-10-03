@@ -98,6 +98,12 @@ export interface EndGamePayload {
   clientScore: number
   durationMs: number
   inputs: GameInputEvidence[]
+  clientSignals?: {
+    suspicionScore: number
+    flags: string[]
+    inputCount: number
+    focusChanges: number
+  }
 }
 
 export interface ApiErrorShape {

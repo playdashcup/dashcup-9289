@@ -20,6 +20,7 @@ import HomeScreen from "@/screens/HomeScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import GameContext from "@/context/GameContext";
 import AudioManager from "@/AudioManager";
+import { ChickenDashRunMonitor, isDevtoolsShortcut } from "@/clientAntiCheat";
 
 const DEBUG_CAMERA_CONTROLS = false;
 
@@ -40,6 +41,19 @@ class Game extends Component {
   dashcupParentOrigin = null;
   dashcupInputs = [];
   dashcupStartedAt = 0;
+  dashcupMonitor = new ChickenDashRunMonitor();
+
+  onClientKeyDown = (event) => {
+    if (this.dashcupRun && isDevtoolsShortcut(event)) this.dashcupMonitor.flag("devtools_shortcut");
+  };
+
+  onClientFocusChange = () => {
+    if (this.dashcupRun) this.dashcupMonitor.noteFocusChange();
+  };
+
+  onClientVisibilityChange = () => {
+    if (document.visibilityState !== "visible" && this.dashcupRun) this.dashcupMonitor.noteFocusChange();
+  };
 
   onDashcupMessage = (event) => {
     if (event.source !== window.parent || event.origin !== this.dashcupParentOrigin) return;
@@ -62,9 +76,11 @@ class Game extends Component {
       window.parent.postMessage({ type: "dashcup:run_started", runId: message.runId }, this.dashcupParentOrigin);
       return;
     }
+    if (this.dashcupRun) this.dashcupMonitor.flag("rapid_reset");
     this.dashcupRun = { runId: message.runId, runToken: message.runToken, seed: Number(message.seed) };
     this.dashcupInputs = [];
     this.dashcupStartedAt = performance.now();
+    this.dashcupMonitor.start(this.dashcupStartedAt);
     this.setState({ score: 0 }, () => {
       try {
         this.updateWithGameState(State.Game.playing);
@@ -108,6 +124,11 @@ class Game extends Component {
   updateWithGameState = (gameState) => {
     if (!gameState) throw new Error("gameState cannot be undefined");
 
+    if (this.dashcupRun) {
+      this.dashcupMonitor.noteStateTransition(this.state.gameState, gameState);
+      this.dashcupMonitor.noteStateIntegrity(this.engine);
+    }
+
     if (gameState === this.state.gameState) {
       return;
     }
@@ -150,7 +171,13 @@ class Game extends Component {
 
   componentWillUnmount() {
     cancelAnimationFrame(this.engine.raf);
-    if (Platform.OS === "web") window.removeEventListener("message", this.onDashcupMessage);
+    if (Platform.OS === "web") {
+      window.removeEventListener("message", this.onDashcupMessage);
+      window.removeEventListener("keydown", this.onClientKeyDown, true);
+      window.removeEventListener("blur", this.onClientFocusChange);
+      window.removeEventListener("focus", this.onClientFocusChange);
+      document.removeEventListener("visibilitychange", this.onClientVisibilityChange);
+    }
     // Dimensions.removeEventListener("change", this.onScreenResize);
   }
 
@@ -167,6 +194,10 @@ class Game extends Component {
       if (requestedOrigin && allowedOrigins.includes(requestedOrigin)) {
         this.dashcupParentOrigin = requestedOrigin;
         window.addEventListener("message", this.onDashcupMessage);
+        window.addEventListener("keydown", this.onClientKeyDown, true);
+        window.addEventListener("blur", this.onClientFocusChange);
+        window.addEventListener("focus", this.onClientFocusChange);
+        document.addEventListener("visibilitychange", this.onClientVisibilityChange);
         window.parent.postMessage({ type: "dashcup:ready" }, this.dashcupParentOrigin);
       }
     }
@@ -180,6 +211,7 @@ class Game extends Component {
     this.engine = new Engine();
     // this.engine.hideShadows = this.hideShadows;
     this.engine.onUpdateScore = (position) => {
+      if (this.dashcupRun) this.dashcupMonitor.noteScore(position);
       if (this.state.score < position) {
         this.setState({ score: position });
       }
@@ -193,11 +225,13 @@ class Game extends Component {
     this.engine.onGameReady = () => this.setState({ ready: true });
     this.engine.onGameEnded = () => {
       if (this.dashcupRun && this.dashcupParentOrigin) {
+        const durationMs = Math.max(1, Math.min(180000, Math.round(performance.now() - this.dashcupStartedAt)));
         window.parent.postMessage({
           type: "dashcup:run_finished",
           runId: this.dashcupRun.runId,
           clientScore: this.state.score,
-          durationMs: Math.max(1, Math.min(180000, Math.round(performance.now() - this.dashcupStartedAt))),
+          durationMs,
+          clientSignals: this.dashcupMonitor.summary(durationMs),
         }, this.dashcupParentOrigin);
         this.dashcupRun = null;
       }
@@ -217,6 +251,11 @@ class Game extends Component {
 
   onSwipe = (gestureName, userGesture = false) => {
     if (userGesture) AudioManager.unlockForUserGesture();
+    const hero = this.engine?._hero;
+    const previousPosition = hero?.initialPosition
+      ? { x: hero.initialPosition.x, z: hero.initialPosition.z }
+      : hero?.position ? { x: hero.position.x, z: hero.position.z } : null;
+    if (this.dashcupRun) this.dashcupMonitor.noteStateIntegrity(this.engine);
     if (this.dashcupRun && this.dashcupParentOrigin && this.dashcupInputs.length < 2000) {
       const directions = {
         [swipeDirections.SWIPE_UP]: "SWIPE_UP",
@@ -226,12 +265,26 @@ class Game extends Component {
       };
       const key = directions[gestureName];
       if (key) {
-        const input = { type: "move", key, at: Math.max(0, Math.min(180000, Math.round(performance.now() - this.dashcupStartedAt))) };
+        const at = Math.max(0, Math.min(180000, Math.round(performance.now() - this.dashcupStartedAt)));
+        const input = { type: "move", key, at };
         this.dashcupInputs.push(input);
+        this.dashcupMonitor.noteInput(at);
         window.parent.postMessage({ type: "dashcup:input", runId: this.dashcupRun.runId, input }, this.dashcupParentOrigin);
       }
     }
     this.engine.moveWithDirection(gestureName);
+    if (this.dashcupRun) {
+      const directions = {
+        [swipeDirections.SWIPE_UP]: "SWIPE_UP",
+        [swipeDirections.SWIPE_DOWN]: "SWIPE_DOWN",
+        [swipeDirections.SWIPE_LEFT]: "SWIPE_LEFT",
+        [swipeDirections.SWIPE_RIGHT]: "SWIPE_RIGHT",
+      };
+      const key = directions[gestureName];
+      const target = this.engine?._hero?.targetPosition;
+      if (key && target) this.dashcupMonitor.noteMovement(previousPosition, target, key);
+      this.dashcupMonitor.noteStateIntegrity(this.engine);
+    }
   };
 
   renderGame = () => {

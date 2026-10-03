@@ -3,6 +3,16 @@ export const MAX_RUN_MS = 180_000
 export const MIN_RUN_MS = 200
 export const MAX_SCORE_PER_SECOND = 12
 export const MAX_INPUTS_PER_SECOND = 16
+export const CLIENT_SIGNAL_FLAGS = [
+  'input_burst', 'score_velocity', 'short_run_high_score', 'movement_jump',
+  'invalid_state_transition', 'state_integrity', 'focus_change', 'devtools_shortcut',
+  'rapid_reset', 'input_count_mismatch',
+] as const
+const CLIENT_SIGNAL_WEIGHTS: Record<(typeof CLIENT_SIGNAL_FLAGS)[number], number> = {
+  input_burst: 24, score_velocity: 28, short_run_high_score: 24, movement_jump: 30,
+  invalid_state_transition: 20, state_integrity: 30, focus_change: 2,
+  devtools_shortcut: 3, rapid_reset: 12, input_count_mismatch: 12,
+}
 const DISPLAY_ADJECTIVES = ['Agile', 'Amber', 'Bright', 'Cosmic', 'Daring', 'Golden', 'Jolly', 'Lucky', 'Merry', 'Mighty', 'Nimble', 'Rapid', 'Silver', 'Snappy', 'Sunny', 'Swift', 'Turbo', 'Velvet', 'Witty', 'Zesty'] as const
 const DISPLAY_NOUNS = ['Badger', 'Bunny', 'Comet', 'Falcon', 'Fox', 'Gecko', 'Hawk', 'Koala', 'Otter', 'Panda', 'Penguin', 'Phoenix', 'Pigeon', 'Puma', 'Robin', 'Sparrow', 'Tiger', 'Turtle', 'Walrus', 'Wombat'] as const
 const CYCLE_ANCHOR = Date.parse('2026-01-05T00:00:00.000Z')
@@ -65,4 +75,23 @@ export function validateEvidence(value: { clientScore?: unknown; durationMs?: un
   if (Number(clientScore) > forwardMoves) return 'SCORE_EXCEEDS_FORWARD_INPUTS'
   if (Number(clientScore) * 1_000 > Number(durationMs) * MAX_SCORE_PER_SECOND) return 'IMPOSSIBLE_SCORE_VELOCITY'
   return null
+}
+
+/** Bounds untrusted browser anti-cheat telemetry. These values never affect score acceptance. */
+export function sanitizeClientSignals(value: unknown, actualInputCount: number) {
+  const telemetry = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+  const flags = new Set<(typeof CLIENT_SIGNAL_FLAGS)[number]>()
+  if (Array.isArray(telemetry.flags)) {
+    for (const flag of telemetry.flags.slice(0, CLIENT_SIGNAL_FLAGS.length)) {
+      if (typeof flag === 'string' && CLIENT_SIGNAL_FLAGS.includes(flag as (typeof CLIENT_SIGNAL_FLAGS)[number])) {
+        flags.add(flag as (typeof CLIENT_SIGNAL_FLAGS)[number])
+      }
+    }
+  }
+  if (Number.isInteger(telemetry.inputCount) && telemetry.inputCount !== actualInputCount) flags.add('input_count_mismatch')
+  const focusChanges = Number.isInteger(telemetry.focusChanges) ? Math.max(0, Math.min(100, Number(telemetry.focusChanges))) : 0
+  const suspicionScore = Math.min(100, [...flags].reduce((sum, flag) => sum + CLIENT_SIGNAL_WEIGHTS[flag], 0))
+  return { flags: [...flags], suspicionScore, inputCount: actualInputCount, focusChanges }
 }
