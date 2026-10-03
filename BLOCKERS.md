@@ -147,3 +147,10 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Existing Worker `dashcup-9289`: version `b38fe224-1a9f-4c2d-b319-6f1abd253587`; existing API/game domains confirmed active.
 - Health + Neon, game asset and handshake bundle, CORS allow/deny, apex redirect, and anonymous mutation denial passed. Staging proved 1:1 score trophies, leaderboard update and 409 duplicate-run protection.
 - Browser E2E remains unverified because installed Brave starts for `--dump-dom`, but remote debugging startup exits with `Multiple targets are not supported in headless mode`.
+
+## 2026-10-03 continuation
+
+- The quest-value/target migration `0005_quest_rewards_and_score_100` has been applied and verified on both existing Neon branches. Staging Worker deploy and quest bootstrap check passed.
+- Remaining optimization gate: the current one-start/one-end-per-run protocol is intentionally retained to preserve per-run tokens, evidence, and duplicate protection. A once-daily aggregate sync would require a secure protocol redesign and adversarial coverage; it is not delivered, so 10,000–50,000 DAU capacity is not established. Source-based request/query projections are documented in `RESOURCE_BUDGET.md`.
+- Neon live cumulative query metrics could not be read because `pg_stat_statements` is absent. No extension was installed.
+- This continuation's final production Worker promotion and Git push are still pending; see the final continuation report/status.

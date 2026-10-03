@@ -385,7 +385,7 @@ app.post('/api/game/end', async (c) => {
       WHERE r.referee_id=s.user_id AND r.qualified_at IS NULL RETURNING r.referrer_id
     ), referral_quest AS (
       INSERT INTO quests(id,user_id,cycle_type,cycle_id,quest_type,target,progress,completed,reward)
-      SELECT 'weekly:'||${weeklyId}||':ref_2',referrer_id,'weekly',${weeklyId},'ref_2',2,1,false,3000 FROM qualified
+      SELECT 'weekly:'||${weeklyId}||':ref_2',referrer_id,'weekly',${weeklyId},'ref_2',2,1,false,10000 FROM qualified
       ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO UPDATE
         SET progress=LEAST(quests.target,quests.progress+1),completed=(LEAST(quests.target,quests.progress+1)>=quests.target),updated_at=now()
         WHERE quests.claimed=false AND quests.progress<quests.target
