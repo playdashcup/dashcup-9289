@@ -182,3 +182,10 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Staging API smoke passed health/bootstrap/start/end: score 1 awarded 1 trophy; duplicate end was rejected with 409. Production API health returns 200 and Neon connected.
 - Live browser test on `www.dashcup.com`: clicked Start; the iframe became active and score advanced to 1. The final browser console check had no errors. No end request was sent, so this test awarded no production trophies.
 - Existing Pages project deployment `8c76b54c-ce5a-4ae4-8be9-a38750bfd867` deployed commit `e6f49f3`. The repair source commits and follow-up status documentation are pushed on `codex/dashcup-rebuild`; working tree was clean after the documentation push.
+
+## Hilltop VAST every 15 accepted runs (2026-10-03)
+
+- Added the provided Hilltop VAST feed to a lazy-loaded Google IMA HTML5 player overlay. A run advances the browser-local counter only after `/api/game/end` succeeds; each 15th accepted run attempts one VAST break. Browsers that require a user gesture receive an explicit Play ad action; a no-fill/error can be dismissed without affecting the game.
+- The counter is a per-browser ad frequency preference only. It does not affect identity, score, trophies, quests, or payouts. Rewarded-ad payouts remain disabled.
+- No Worker, Neon, schema, dependency, or infrastructure changes were made. The IMA/VAST provider receives network requests only when a 15-run threshold is reached.
+- Validation on this working tree: `pnpm lint` passed and `pnpm build` passed. Actual provider fill/playback and live deployment have not yet been verified.

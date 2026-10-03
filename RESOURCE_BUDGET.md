@@ -114,3 +114,10 @@ Updated: 2026-10-02
 - Handshake retries remain same-page `postMessage` until one acknowledgement. No extra Worker calls, Neon writes, polling, or gameplay heartbeats were added.
 - Web audio waits for the first real gesture inside the iframe, avoiding repeated denied playback attempts. No provider calls are involved.
 - Lifecycle remains one game-start API request and one bounded game-end request. Worker tests remain 12/12; no workload cost benchmark was run.
+
+## Hilltop VAST pacing (2026-10-03)
+
+- The provided Hilltop VAST feed is requested through the Google IMA HTML5 SDK only after every 15th successful `/api/game/end` response. The SDK loader and VAST request are lazy; no ad SDK request occurs during normal gameplay.
+- Accepted-run frequency is stored in browser `localStorage` (with an in-memory page-session fallback). This is only ad pacing, is not identity/progression, and is not used to grant trophies or rewards. The interval is per browser profile, not account-wide.
+- This adds no Worker calls, Neon queries/writes, API endpoints, database objects, dependencies, or infrastructure. Each due ad attempt does incur third-party IMA/VAST network requests.
+- `pnpm lint` and `pnpm build` pass for this frontend change. No live ad playback, fill, or revenue was verified.
