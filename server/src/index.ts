@@ -1,11 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 import { Hono, type Context } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
-import { getCookie, setCookie } from 'hono/cookie'
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { decryptRewardCode, encryptRewardCode, type RewardType } from './security/reward-code'
 import { constantTimeStringEqual } from './security/timing-safe'
-import { rewardEmailTemplate } from './email/reward-template'
+import { rewardEmailTemplate, rewardEmailVerificationTemplate } from './email/reward-template'
 import { sendRewardEmail } from './email/resend'
+import { renderAdminPortal } from './admin/portal'
+import { verifyAdminCredentials } from './security/admin-auth'
 import { isExpensiveMutation, isRateLimited, rateLimitKey } from './security/rate-limit'
 import { biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, randomDisplayName, sanitizeClientSignals, validateEvidence, weekId } from './domain'
 
@@ -18,7 +20,8 @@ interface Env {
   ENVIRONMENT: string
   PUBLIC_ORIGIN: string
   REWARD_ENCRYPTION_KEY?: string
-  REWARD_ADMIN_TOKEN?: string
+  REWARD_ADMIN_USERNAME?: string
+  REWARD_ADMIN_PASSWORD_HASH?: string
   RESEND_API_KEY?: string
   RESEND_FROM_EMAIL?: string
   REWARD_EMAIL_DELIVERY_ENABLED?: string
@@ -28,9 +31,12 @@ interface Env {
 
 type Variables = { userId: string; sessionId: string; csrfHash: string }
 type AppContext = Context<{ Bindings: Env; Variables: Variables }>
-type RewardRedemption = { id: string; status: string; delivery_status: string; recipient_email: string; reward_type: RewardType; encrypted_code: Uint8Array; iv: Uint8Array; authentication_tag: Uint8Array }
+type RewardRedemption = { id: string; status: string; delivery_status: string; idempotency_key: string; delivery_attempt: number; recipient_email: string; reward_type: RewardType; encrypted_code: Uint8Array; iv: Uint8Array; authentication_tag: Uint8Array }
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 const SESSION_COOKIE = 'dashcup_session'
+const ADMIN_SESSION_COOKIE = '__Secure-dashcup_admin'
+const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60
+const ADMIN_ORIGIN = 'https://admin.dashcup.com'
 const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 const RUN_CLOCK_TOLERANCE_MS = 10_000
 
@@ -187,7 +193,7 @@ app.get('/api/bootstrap', async (c) => {
       FROM jsonb_to_recordset(${JSON.stringify(questRows)}::jsonb) AS x(id text,user_id uuid,cycle_type text,cycle_id text,quest_type text,target integer,reward integer)
       ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO NOTHING
       RETURNING id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed
-    ) SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.gift_choice,
+    ) SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.reward_email_verified_at,u.gift_choice,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
         'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
         ORDER BY q.cycle_type,q.quest_type)
@@ -195,6 +201,10 @@ app.get('/api/bootstrap', async (c) => {
           WHERE user_id=u.id AND ((cycle_type='daily' AND cycle_id=${dailyId}) OR (cycle_type='weekly' AND cycle_id=${weeklyId}))
           UNION ALL
           SELECT id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed FROM seeded_quests) q),'[]'::jsonb) AS quests
+    ,COALESCE((SELECT jsonb_object_agg(stock.reward_type,stock.available)
+      FROM (SELECT slots.reward_type,count(code.id) FILTER (WHERE code.status='available')::integer AS available
+        FROM reward_inventory_slots slots LEFT JOIN reward_codes code ON code.id=slots.reward_code_id
+        GROUP BY slots.reward_type) stock),'{}'::jsonb) AS reward_stock
     FROM users u WHERE u.id=${activeSession.user_id} AND u.disabled_at IS NULL`
   const user = snapshot
   if (!user) return c.json({ error: 'Session user unavailable', code: 'SESSION_INVALID' }, 401)
@@ -218,15 +228,18 @@ app.get('/api/bootstrap', async (c) => {
       COALESCE(bool_or(is_current_user AND EXISTS(SELECT 1 FROM reward_redemptions r
         WHERE r.user_id=top_rows.user_id AND r.cycle_id=${closedCycle} AND r.status<>'cancelled'))
         FILTER (WHERE cycle_id=${closedCycle}),false) AS redeemed
+      ,(SELECT r.delivery_status FROM reward_redemptions r WHERE r.user_id=${activeSession.user_id} AND r.cycle_id=${closedCycle}
+        AND r.status<>'cancelled' ORDER BY r.created_at DESC LIMIT 1) AS reward_delivery_status
     FROM top_rows`
   return c.json({
     success: true,
     csrfToken,
-    me: { user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, giftChoice: user.gift_choice },
+    me: { user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, rewardEmailVerified: Boolean(user.reward_email_verified_at), giftChoice: user.gift_choice },
     quests: quests.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })),
     leaderboard: { active: leaderboardSnapshot.active, closed: leaderboardSnapshot.closed, currentPlayer: leaderboardSnapshot.current_player, cycle: activeCycle },
-    eligibility: { eligible: leaderboardSnapshot.user_rank !== null, rank: leaderboardSnapshot.user_rank ?? null, cycle: closedCycle, rewardEmail: user.reward_email, giftChoice: user.gift_choice, redeemed: leaderboardSnapshot.redeemed },
+    eligibility: { eligible: leaderboardSnapshot.user_rank !== null, rank: leaderboardSnapshot.user_rank ?? null, cycle: closedCycle, rewardEmail: user.reward_email, giftChoice: user.gift_choice, redeemed: leaderboardSnapshot.redeemed, deliveryStatus: leaderboardSnapshot.reward_delivery_status ?? null },
     referral: { referralCode: user.referral_code, referralUrl: `${c.env.PUBLIC_ORIGIN}/?ref=${encodeURIComponent(user.referral_code)}` },
+    rewardStock: snapshot.reward_stock as Record<RewardType, number>,
   })
 })
 
@@ -251,6 +264,72 @@ async function requireCsrf(c: AppContext) {
   return constantTimeStringEqual(await sha256(supplied), c.get('csrfHash'))
 }
 
+function requireAdminOrigin(c: AppContext) {
+  if (c.req.header('Origin') !== ADMIN_ORIGIN) {
+    return c.json({ error: 'Forbidden', code: 'ADMIN_ORIGIN_DENIED' }, 403)
+  }
+  return null
+}
+
+async function requireAdmin(c: AppContext) {
+  if (requireAdminOrigin(c)) return null
+  const token = getCookie(c, ADMIN_SESSION_COOKIE)
+  if (!token) return null
+  const [session] = await sqlFor(c.env)`SELECT id,username FROM admin_sessions
+    WHERE token_hash=${await sha256(token)} AND expires_at > now() AND revoked_at IS NULL LIMIT 1`
+  return session as { id: string; username: string } | undefined ?? null
+}
+
+function adminCookieOptions() {
+  return { httpOnly: true as const, secure: true as const, sameSite: 'Strict' as const, path: '/api/admin', maxAge: ADMIN_SESSION_TTL_SECONDS }
+}
+
+function prepareAdminDelivery(c: AppContext, redemptionId: string, onlyRejected: boolean) {
+  const sql = sqlFor(c.env)
+  return onlyRejected
+    ? sql`UPDATE reward_redemptions r SET status='sending',delivery_status='sending',
+        delivery_attempt=r.delivery_attempt+1,idempotency_key=r.id::text||'/attempt/'||(r.delivery_attempt+1)::text,
+        failure_info='attempt_in_progress',delivery_updated_at=now(),updated_at=now()
+      FROM reward_codes code
+      WHERE r.id=${redemptionId} AND r.delivery_status='rejected' AND code.id=r.reward_code_id
+        AND code.status='reserved'
+      RETURNING r.id,r.status,r.delivery_status,r.idempotency_key,r.delivery_attempt,r.recipient_email,r.reward_type,
+        code.encrypted_code,code.iv,code.authentication_tag`
+    : sql`UPDATE reward_redemptions r SET status='sending',delivery_status='sending',
+        failure_info='attempt_in_progress',delivery_updated_at=now(),updated_at=now()
+      FROM reward_codes code
+      WHERE r.id=${redemptionId} AND r.delivery_status='reserved' AND code.id=r.reward_code_id
+        AND code.status='reserved'
+      RETURNING r.id,r.status,r.delivery_status,r.idempotency_key,r.delivery_attempt,r.recipient_email,r.reward_type,
+        code.encrypted_code,code.iv,code.authentication_tag`
+}
+
+async function sendReservedRedemption(c: AppContext, redemption: RewardRedemption) {
+  if (!c.env.REWARD_ENCRYPTION_KEY || !c.env.RESEND_API_KEY || !c.env.RESEND_FROM_EMAIL || !c.env.RESEND_WEBHOOK_SECRET) {
+    return c.json({ error: 'Reward email delivery configuration is incomplete.', code: 'REWARD_CONFIG_MISSING' }, 503)
+  }
+  let code: string
+  try {
+    code = await decryptRewardCode({ encryptedCode: redemption.encrypted_code, iv: redemption.iv, authenticationTag: redemption.authentication_tag }, redemption.reward_type, c.env.REWARD_ENCRYPTION_KEY)
+  } catch {
+    await sqlFor(c.env)`UPDATE reward_redemptions SET status='failed',delivery_status='rejected',failure_info='code_decryption_failed',delivery_updated_at=now(),updated_at=now() WHERE id=${redemption.id}`
+    return c.json({ error: 'The reserved reward could not be prepared. Contact support.', code: 'REWARD_CODE_UNAVAILABLE' }, 503)
+  }
+  const message = rewardEmailTemplate(code, redemption.reward_type)
+  const outcome = await sendRewardEmail({ apiKey: c.env.RESEND_API_KEY, from: c.env.RESEND_FROM_EMAIL, to: redemption.recipient_email, ...message, idempotencyKey: redemption.idempotency_key })
+  const sql = sqlFor(c.env)
+  if (outcome.state === 'accepted') {
+    await sql`UPDATE reward_redemptions SET status='sending',delivery_status='accepted',delivery_updated_at=now(),provider_message_id=${outcome.messageId},failure_info=NULL,updated_at=now() WHERE id=${redemption.id} AND delivery_status='sending'`
+    return c.json({ success: true, status: 'accepted', redemptionId: redemption.id }, 202)
+  }
+  if (outcome.state === 'rejected') {
+    await sql`UPDATE reward_redemptions SET status='failed',delivery_status='rejected',delivery_updated_at=now(),failure_info=${outcome.reason},updated_at=now() WHERE id=${redemption.id} AND delivery_status='sending'`
+    return c.json({ error: 'The mail provider rejected delivery. You may retry this same redemption.', code: 'DELIVERY_REJECTED', status: 'rejected', redemptionId: redemption.id }, 502)
+  }
+  await sql`UPDATE reward_redemptions SET status='provider_unknown',delivery_status='provider_unknown',delivery_updated_at=now(),failure_info=${outcome.reason},updated_at=now() WHERE id=${redemption.id} AND delivery_status='sending'`
+  return c.json({ error: 'Delivery status is unknown; reconcile with support before retrying.', code: 'PROVIDER_UNKNOWN', status: 'provider_unknown', redemptionId: redemption.id }, 202)
+}
+
 async function logSuspiciousRun(c: AppContext, runId: string | null, reason: string, evidenceHash: string | null) {
   const sql = sqlFor(c.env)
   let reasons = [reason]
@@ -265,8 +344,8 @@ async function logSuspiciousRun(c: AppContext, runId: string | null, reason: str
 
 app.get('/api/me', async (c) => {
   if (!await requireSession(c)) return c.json({ error: 'Sign in required', code: 'UNAUTHENTICATED' }, 401)
-  const [user] = await sqlFor(c.env)`SELECT id,display_name,trophies,personal_best,referral_code,reward_email,gift_choice FROM users WHERE id=${c.get('userId')}`
-  return c.json({ user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, giftChoice: user.gift_choice })
+  const [user] = await sqlFor(c.env)`SELECT id,display_name,trophies,personal_best,referral_code,reward_email,reward_email_verified_at,gift_choice FROM users WHERE id=${c.get('userId')}`
+  return c.json({ user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, rewardEmailVerified: Boolean(user.reward_email_verified_at), giftChoice: user.gift_choice })
 })
 
 app.post('/api/game/start', async (c) => {
@@ -363,7 +442,7 @@ app.post('/api/game/end', async (c) => {
         personal_best=GREATEST(u.personal_best,e.verified_score),
         updated_at=now()
       FROM eligible e WHERE u.id=e.user_id
-      RETURNING u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.gift_choice,
+      RETURNING u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.reward_email_verified_at,u.gift_choice,
         e.verified_score,(e.previous_best IS NULL OR e.verified_score>e.previous_best) AS new_personal_best
     ), daily_pb AS (
       UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
@@ -397,7 +476,7 @@ app.post('/api/game/end', async (c) => {
       UNION ALL SELECT * FROM referral_quest
     ) SELECT s.run_id,s.verified_score,p.trophies AS total_trophies,
       jsonb_build_object('id',p.id,'displayName',p.display_name,'trophies',p.trophies,
-        'personalBest',p.personal_best,'referralCode',p.referral_code,'rewardEmail',p.reward_email,'giftChoice',p.gift_choice) AS me,
+        'personalBest',p.personal_best,'referralCode',p.referral_code,'rewardEmail',p.reward_email,'rewardEmailVerified',p.reward_email_verified_at IS NOT NULL,'giftChoice',p.gift_choice) AS me,
       (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
         'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
         ORDER BY q.cycle_type,q.quest_type),'[]'::jsonb)
@@ -428,7 +507,7 @@ app.post('/api/game/end', async (c) => {
     await logSuspiciousRun(c, safeRunId, reasons[0], evidenceHash)
     return c.json({ error: 'Run token is invalid, expired, or already used', code: 'RUN_INVALID' }, 409)
   }
-  const progress = recorded.me as { id: string; displayName: string; trophies: number; personalBest: number | null; referralCode: string; rewardEmail: string | null; giftChoice: string | null }
+  const progress = recorded.me as { id: string; displayName: string; trophies: number; personalBest: number | null; referralCode: string; rewardEmail: string | null; rewardEmailVerified: boolean; giftChoice: string | null }
   const stateQuests = recorded.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
   return c.json({
     accepted: true,
@@ -438,7 +517,7 @@ app.post('/api/game/end', async (c) => {
     trophiesEarned: Number(recorded.verified_score),
     totalTrophies: Number(recorded.total_trophies),
     state: {
-      me: { user: { id: progress.id, displayName: progress.displayName }, trophies: Number(progress.trophies), personalBest: progress.personalBest, referralCode: progress.referralCode, rewardEmail: progress.rewardEmail, giftChoice: progress.giftChoice },
+      me: { user: { id: progress.id, displayName: progress.displayName }, trophies: Number(progress.trophies), personalBest: progress.personalBest, referralCode: progress.referralCode, rewardEmail: progress.rewardEmail, rewardEmailVerified: progress.rewardEmailVerified, giftChoice: progress.giftChoice },
       quests: stateQuests.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })),
     },
   })
@@ -528,8 +607,12 @@ app.post('/api/rewards/email', async (c) => {
   const choices = new Set(['robux','freefire','vbucks','pubg','cod'])
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !body.giftChoice || !choices.has(body.giftChoice)) return c.json({ error: 'Valid email and reward category required', code: 'INVALID_REWARD_DETAILS' }, 400)
   const sql = sqlFor(c.env)
+  const verificationToken = randomToken()
+  const verificationHash = await sha256(verificationToken)
+  const verificationExpires = new Date(Date.now() + 30 * 60 * 1_000).toISOString()
   const [result] = await sql`WITH current AS MATERIALIZED (
-      SELECT id,reward_email,gift_choice,reward_email_change_count,reward_email_window_started_at
+      SELECT id,reward_email,gift_choice,reward_email_change_count,reward_email_window_started_at,reward_email_verified_at,
+        reward_email_verification_token_hash,reward_email_verification_expires_at
       FROM users WHERE id=${c.get('userId')} FOR UPDATE
     ), updated AS (
       UPDATE users u SET reward_email=${email},gift_choice=${body.giftChoice},
@@ -541,23 +624,57 @@ app.post('/api/rewards/email', async (c) => {
           WHEN old.reward_email IS NOT DISTINCT FROM ${email} THEN old.reward_email_window_started_at
           WHEN old.reward_email_window_started_at IS NULL OR old.reward_email_window_started_at <= now()-interval '7 days' THEN now()
           ELSE old.reward_email_window_started_at END,
+        reward_email_verified_at=CASE WHEN old.reward_email IS DISTINCT FROM ${email} THEN NULL ELSE old.reward_email_verified_at END,
+        reward_email_verification_token_hash=CASE WHEN old.reward_email IS DISTINCT FROM ${email}
+          OR (old.reward_email_verified_at IS NULL AND (old.reward_email_verification_token_hash IS NULL OR old.reward_email_verification_expires_at<=now()))
+          THEN ${verificationHash} ELSE old.reward_email_verification_token_hash END,
+        reward_email_verification_expires_at=CASE WHEN old.reward_email IS DISTINCT FROM ${email}
+          OR (old.reward_email_verified_at IS NULL AND (old.reward_email_verification_token_hash IS NULL OR old.reward_email_verification_expires_at<=now()))
+          THEN ${verificationExpires} ELSE old.reward_email_verification_expires_at END,
         updated_at=now()
       FROM current old WHERE u.id=old.id AND (old.reward_email IS NOT DISTINCT FROM ${email}
         OR old.reward_email_window_started_at IS NULL OR old.reward_email_window_started_at <= now()-interval '7 days'
         OR old.reward_email_change_count < 3)
-        AND (old.reward_email IS DISTINCT FROM ${email} OR old.gift_choice IS DISTINCT FROM ${body.giftChoice})
-      RETURNING u.reward_email,u.gift_choice
-    ) SELECT reward_email,gift_choice FROM updated
-      UNION ALL SELECT reward_email,gift_choice FROM current
+        AND (old.reward_email IS DISTINCT FROM ${email} OR old.gift_choice IS DISTINCT FROM ${body.giftChoice} OR old.reward_email_verified_at IS NULL)
+      RETURNING u.reward_email,u.gift_choice,u.reward_email_verified_at,(u.reward_email_verification_token_hash=${verificationHash}) AS should_send_verification
+    ) SELECT reward_email,gift_choice,reward_email_verified_at,should_send_verification FROM updated
+      UNION ALL SELECT reward_email,gift_choice,reward_email_verified_at,false AS should_send_verification FROM current
         WHERE reward_email IS NOT DISTINCT FROM ${email} AND gift_choice IS NOT DISTINCT FROM ${body.giftChoice}
       LIMIT 1`
   if (!result) return c.json({ error: 'Only three reward email changes are allowed per seven days', code: 'EMAIL_CHANGE_LIMIT' }, 429)
-  return c.json({ success: true, rewardEmail: result.reward_email, giftChoice: result.gift_choice })
+  if (result.reward_email_verified_at) return c.json({ success: true, rewardEmail: result.reward_email, giftChoice: result.gift_choice, emailVerified: true, verificationStatus: 'verified' })
+  if (c.env.REWARD_EMAIL_DELIVERY_ENABLED !== 'true' || !c.env.RESEND_API_KEY || !c.env.RESEND_FROM_EMAIL) {
+    return c.json({ success: true, rewardEmail: result.reward_email, giftChoice: result.gift_choice, emailVerified: false, verificationStatus: 'not_configured' })
+  }
+  if (!result.should_send_verification) {
+    return c.json({ success: true, rewardEmail: result.reward_email, giftChoice: result.gift_choice, emailVerified: false, verificationStatus: 'pending' }, 202)
+  }
+  const verifyUrl = `${c.env.PUBLIC_ORIGIN}/#verify_reward_email=${verificationToken}`
+  const message = rewardEmailVerificationTemplate(verifyUrl)
+  const outcome = await sendRewardEmail({ apiKey: c.env.RESEND_API_KEY, from: c.env.RESEND_FROM_EMAIL, to: result.reward_email, ...message, idempotencyKey: `reward-email-verify:${verificationHash}` })
+  if (outcome.state === 'accepted') return c.json({ success: true, rewardEmail: result.reward_email, giftChoice: result.gift_choice, emailVerified: false, verificationStatus: 'sent' })
+  if (outcome.state === 'provider_unknown') return c.json({ success: true, rewardEmail: result.reward_email, giftChoice: result.gift_choice, emailVerified: false, verificationStatus: 'pending' }, 202)
+  await sql`UPDATE users SET reward_email_verification_token_hash=NULL,reward_email_verification_expires_at=NULL
+    WHERE id=${c.get('userId')} AND reward_email_verification_token_hash=${verificationHash} AND reward_email_verified_at IS NULL`
+  return c.json({ error: 'Verification email was rejected. Save the same address again to request another link.', code: 'EMAIL_VERIFICATION_REJECTED' }, 502)
+})
+
+app.post('/api/rewards/email/verify', async (c) => {
+  const origin = c.req.header('Origin')
+  if (!origin || !['https://dashcup.com','https://www.dashcup.com'].includes(origin)) return c.json({ error: 'Origin is not allowed', code: 'ORIGIN_DENIED' }, 403)
+  const body = await c.req.json().catch(() => null) as { token?: unknown } | null
+  if (typeof body?.token !== 'string' || !/^[a-f0-9]{64}$/i.test(body.token)) return c.json({ error: 'Verification link is invalid or expired.', code: 'EMAIL_VERIFICATION_INVALID' }, 400)
+  const [verified] = await sqlFor(c.env)`UPDATE users SET reward_email_verified_at=now(),reward_email_verification_token_hash=NULL,
+      reward_email_verification_expires_at=NULL,updated_at=now()
+    WHERE reward_email_verification_token_hash=${await sha256(body.token)} AND reward_email_verification_expires_at>now()
+    RETURNING id`
+  if (!verified) return c.json({ error: 'Verification link is invalid or expired. Request a new link from Rewards.', code: 'EMAIL_VERIFICATION_INVALID' }, 400)
+  return c.json({ success: true, emailVerified: true })
 })
 
 app.post('/api/rewards/redeem', async (c) => {
   if (!await requireCsrf(c)) return c.json({ error: 'Session or CSRF token invalid', code: 'CSRF_DENIED' }, 403)
-  if (c.env.REWARD_EMAIL_DELIVERY_ENABLED !== 'true' || !c.env.REWARD_ENCRYPTION_KEY || !c.env.RESEND_API_KEY || !c.env.RESEND_FROM_EMAIL) return c.json({ error: 'Reward delivery is not enabled for this environment.', code: 'REWARDS_DISABLED' }, 503)
+  if (c.env.REWARD_EMAIL_DELIVERY_ENABLED !== 'true' || !c.env.REWARD_ENCRYPTION_KEY || !c.env.RESEND_API_KEY || !c.env.RESEND_FROM_EMAIL || !c.env.RESEND_WEBHOOK_SECRET) return c.json({ error: 'Reward delivery is not enabled for this environment.', code: 'REWARDS_DISABLED' }, 503)
   const body = await c.req.json().catch(() => null) as { giftChoice?: unknown } | null
   const choices = new Set<RewardType>(['robux', 'freefire', 'vbucks', 'pubg', 'cod'])
   if (typeof body?.giftChoice !== 'string' || !choices.has(body.giftChoice as RewardType)) return c.json({ error: 'Choose a valid reward category.', code: 'INVALID_REWARD_DETAILS' }, 400)
@@ -566,53 +683,74 @@ app.post('/api/rewards/redeem', async (c) => {
   const activeCycle = biweeklyId(now)
   const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
   const sql = sqlFor(c.env)
-  const [prior] = await sql`SELECT r.id,r.status,r.delivery_status,r.recipient_email,r.reward_type,c.encrypted_code,c.iv,c.authentication_tag
+  const priorRows = await sql`SELECT r.id,r.status,r.delivery_status,r.idempotency_key,r.delivery_attempt,r.recipient_email,r.reward_type,
+      c.encrypted_code,c.iv,c.authentication_tag
     FROM reward_redemptions r JOIN reward_codes c ON c.id=r.reward_code_id
     WHERE r.user_id=${c.get('userId')} AND r.cycle_id=${closedCycle} LIMIT 1`
-  let redemption = prior as unknown as RewardRedemption | undefined
-  if (redemption && redemption.status === 'sent') return c.json({ success: true, status: 'sent' })
-  if (redemption && redemption.status === 'cancelled') return c.json({ error: 'This reward redemption has been cancelled.', code: 'REDEMPTION_CANCELLED' }, 409)
-  if (redemption && redemption.delivery_status === 'accepted') return c.json({ success: true, status: 'accepted' }, 202)
-  if (redemption && redemption.delivery_status === 'provider_unknown') return c.json({ error: 'Provider delivery is ambiguous and needs reconciliation.', code: 'PROVIDER_UNKNOWN', status: 'provider_unknown' }, 202)
-  if (redemption && redemption.delivery_status === 'rejected') return c.json({ error: 'The provider rejected delivery; contact support.', code: 'DELIVERY_REJECTED', status: 'rejected' }, 502)
+  let redemption = priorRows[0] as unknown as RewardRedemption | undefined
+  if (redemption) {
+    if (redemption.reward_type !== rewardType) return c.json({ error: 'This account already has a redemption for a different reward.', code: 'REWARD_CHOICE_MISMATCH' }, 409)
+    if (redemption.status === 'cancelled') return c.json({ error: 'This reward redemption has been cancelled.', code: 'REDEMPTION_CANCELLED' }, 409)
+    if (redemption.delivery_status === 'sent') return c.json({ success: true, status: 'sent', redemptionId: redemption.id })
+    if (redemption.delivery_status === 'accepted') return c.json({ success: true, status: 'accepted', redemptionId: redemption.id }, 202)
+    if (redemption.delivery_status === 'sending') return c.json({ success: true, status: 'sending', redemptionId: redemption.id }, 202)
+    if (redemption.delivery_status === 'provider_unknown') return c.json({ error: 'Delivery status is unknown; please wait for confirmation.', code: 'PROVIDER_UNKNOWN', status: 'provider_unknown', redemptionId: redemption.id }, 202)
+    if (redemption.delivery_status === 'rejected') {
+      const [prepared] = await prepareAdminDelivery(c, redemption.id, true)
+      if (!prepared) return c.json({ success: true, status: 'provider_unknown', redemptionId: redemption.id }, 202)
+      redemption = prepared as unknown as RewardRedemption
+    } else if (redemption.delivery_status === 'reserved') {
+      const [prepared] = await prepareAdminDelivery(c, redemption.id, false)
+      if (!prepared) return c.json({ success: true, status: 'provider_unknown', redemptionId: redemption.id }, 202)
+      redemption = prepared as unknown as RewardRedemption
+    } else {
+      return c.json({ error: 'Redemption needs administrator reconciliation.', code: 'PROVIDER_UNKNOWN', status: 'provider_unknown', redemptionId: redemption.id }, 202)
+    }
+    return sendReservedRedemption(c, redemption)
+  }
+
+  const redemptionId = crypto.randomUUID()
+  const [created] = await sql`WITH locked_user AS MATERIALIZED (
+      SELECT id,reward_email,gift_choice FROM users WHERE id=${c.get('userId')} AND disabled_at IS NULL AND reward_email IS NOT NULL AND reward_email_verified_at IS NOT NULL FOR UPDATE
+    ), eligible AS MATERIALIZED (
+      SELECT cs.user_id FROM cycle_scores cs JOIN locked_user u ON u.id=cs.user_id WHERE cs.cycle_id=${closedCycle}
+      AND u.gift_choice=${rewardType} AND (SELECT count(*) FROM cycle_scores top WHERE top.cycle_id=${closedCycle}
+        AND (top.trophies>cs.trophies OR (top.trophies=cs.trophies AND top.user_id<=cs.user_id))) <= 20
+    ), picked AS MATERIALIZED (
+      SELECT code.id,slot.slot_number FROM reward_inventory_slots slot
+      JOIN reward_codes code ON code.id=slot.reward_code_id
+      WHERE slot.reward_type=${rewardType} AND code.reward_type=${rewardType} AND code.status='available'
+      ORDER BY slot.slot_number FOR UPDATE OF slot,code SKIP LOCKED LIMIT 1
+    ), inserted AS (
+      INSERT INTO reward_redemptions(id,user_id,cycle_id,reward_type,reward_code_id,inventory_slot_number,recipient_email,status,idempotency_key,delivery_attempt)
+      SELECT ${redemptionId},u.id,${closedCycle},${rewardType},p.id,p.slot_number,u.reward_email,'sending',${redemptionId},1
+      FROM locked_user u JOIN eligible e ON e.user_id=u.id CROSS JOIN picked p
+      ON CONFLICT(user_id,cycle_id) DO NOTHING
+      RETURNING id,reward_code_id,inventory_slot_number,recipient_email,reward_type,status,delivery_status,idempotency_key,delivery_attempt
+    ), reserved AS (
+      UPDATE reward_codes code SET status='reserved',reserved_at=now()
+      FROM inserted i WHERE code.id=i.reward_code_id RETURNING code.id
+    ) SELECT i.id,i.status,i.delivery_status,i.idempotency_key,i.delivery_attempt,i.recipient_email,i.reward_type,
+        code.encrypted_code,code.iv,code.authentication_tag
+      FROM inserted i JOIN reserved held ON held.id=i.reward_code_id JOIN reward_codes code ON code.id=i.reward_code_id`
+  redemption = created as unknown as RewardRedemption | undefined
   if (!redemption) {
-    const redemptionId = crypto.randomUUID()
-    const [created] = await sql`WITH locked_user AS MATERIALIZED (
-        SELECT id,reward_email,gift_choice FROM users WHERE id=${c.get('userId')} AND disabled_at IS NULL AND reward_email IS NOT NULL FOR UPDATE
-      ), eligible AS MATERIALIZED (
-        SELECT cs.user_id FROM cycle_scores cs JOIN locked_user u ON u.id=cs.user_id WHERE cs.cycle_id=${closedCycle}
-        AND u.gift_choice=${rewardType} AND (SELECT count(*) FROM cycle_scores top WHERE top.cycle_id=${closedCycle}
-          AND (top.trophies>cs.trophies OR (top.trophies=cs.trophies AND top.user_id<=cs.user_id))) <= 20
-      ), picked AS MATERIALIZED (
-        SELECT c.id FROM reward_codes c WHERE c.reward_type=${rewardType} AND c.status='available'
-        AND (SELECT count(*) FROM reward_codes stock WHERE stock.reward_type=${rewardType} AND stock.status='available') > 20
-        ORDER BY c.created_at,c.id FOR UPDATE SKIP LOCKED LIMIT 1
-      ), reserved AS (
-        UPDATE reward_codes c SET status='reserved',reserved_at=now() FROM picked p WHERE c.id=p.id RETURNING c.id
-      ), inserted AS (
-        INSERT INTO reward_redemptions(id,user_id,cycle_id,reward_type,reward_code_id,recipient_email,status,idempotency_key)
-        SELECT ${redemptionId},u.id,${closedCycle},${rewardType},r.id,u.reward_email,'sending',${redemptionId}
-        FROM locked_user u JOIN eligible e ON e.user_id=u.id CROSS JOIN reserved r
-        ON CONFLICT DO NOTHING RETURNING id,reward_code_id
-      ) SELECT r.id,r.status,r.recipient_email,r.reward_type,c.encrypted_code,c.iv,c.authentication_tag
-        FROM inserted i JOIN reward_redemptions r ON r.id=i.id JOIN reward_codes c ON c.id=i.reward_code_id`
-    redemption = created as unknown as RewardRedemption | undefined
+    const [raced] = await sql`SELECT r.id,r.status,r.delivery_status,r.idempotency_key,r.delivery_attempt,r.recipient_email,r.reward_type,
+      c.encrypted_code,c.iv,c.authentication_tag FROM reward_redemptions r JOIN reward_codes c ON c.id=r.reward_code_id
+      WHERE r.user_id=${c.get('userId')} AND r.cycle_id=${closedCycle} LIMIT 1`
+    if (!raced) return c.json({ error: 'No code is available for this reward. Currently unavailable — please try later.', code: 'REWARD_UNAVAILABLE' }, 409)
+    redemption = raced as unknown as RewardRedemption
+    if (redemption.reward_type !== rewardType) return c.json({ error: 'This account already has a redemption for a different reward.', code: 'REWARD_CHOICE_MISMATCH' }, 409)
+    if (redemption.delivery_status !== 'reserved') return c.json({ success: true, status: redemption.delivery_status, redemptionId: redemption.id }, 202)
+    const [prepared] = await prepareAdminDelivery(c, redemption.id, false)
+    if (!prepared) return c.json({ success: true, status: 'provider_unknown', redemptionId: redemption.id }, 202)
+    redemption = prepared as unknown as RewardRedemption
+  } else {
+    const [prepared] = await prepareAdminDelivery(c, redemption.id, false)
+    if (!prepared) return c.json({ success: true, status: 'provider_unknown', redemptionId: redemption.id }, 202)
+    redemption = prepared as unknown as RewardRedemption
   }
-  if (!redemption) return c.json({ error: 'This account is not eligible or reward stock is below the safety threshold.', code: 'REWARD_UNAVAILABLE' }, 409)
-  if (redemption.reward_type !== rewardType) return c.json({ error: 'The selected reward does not match the saved reward choice.', code: 'REWARD_CHOICE_MISMATCH' }, 409)
-  const code = await decryptRewardCode({ encryptedCode: redemption.encrypted_code, iv: redemption.iv, authenticationTag: redemption.authentication_tag }, redemption.reward_type, c.env.REWARD_ENCRYPTION_KEY)
-  const message = rewardEmailTemplate(code, redemption.reward_type)
-  const outcome = await sendRewardEmail({ apiKey: c.env.RESEND_API_KEY, from: c.env.RESEND_FROM_EMAIL, to: redemption.recipient_email, ...message, idempotencyKey: redemption.id })
-  if (outcome.state === 'accepted') {
-    await sql`UPDATE reward_redemptions SET status='sending',delivery_status='accepted',delivery_updated_at=now(),provider_message_id=${outcome.messageId},failure_info=NULL,updated_at=now() WHERE id=${redemption.id}`
-    return c.json({ success: true, status: 'accepted' })
-  }
-  if (outcome.state === 'rejected') {
-    await sql`UPDATE reward_redemptions SET status='failed',delivery_status='rejected',delivery_updated_at=now(),failure_info=${outcome.reason},updated_at=now() WHERE id=${redemption.id}`
-    return c.json({ error: 'The mail provider rejected delivery. Contact support before retrying.', code: 'DELIVERY_REJECTED', status: 'rejected' }, 502)
-  }
-  await sql`UPDATE reward_redemptions SET status='provider_unknown',delivery_status='provider_unknown',delivery_updated_at=now(),failure_info=${outcome.reason},updated_at=now() WHERE id=${redemption.id}`
-  return c.json({ error: 'Delivery status is not yet known and needs reconciliation.', code: 'PROVIDER_UNKNOWN', status: 'provider_unknown' }, 202)
+  return sendReservedRedemption(c, redemption)
 })
 
 app.post('/webhooks/resend', async (c) => {
@@ -661,27 +799,163 @@ app.get('/api/rewards/status', async (c) => {
   return c.json({ status: row?.delivery_status ?? 'none', redemptionId: row?.id ?? null, updatedAt: row?.updated_at ?? null })
 })
 
-app.post('/api/admin/rewards/import', async (c) => {
-  const adminToken = c.env.REWARD_ADMIN_TOKEN
-  const supplied = c.req.header('Authorization')?.replace(/^Bearer\s+/i, '')
-  if (!adminToken || !supplied) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
-  const expectedHash = await sha256(adminToken)
-  const suppliedHash = await sha256(supplied)
-  if (!await constantTimeStringEqual(expectedHash, suppliedHash)) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+app.post('/api/admin/auth/login', async (c) => {
+  if (requireAdminOrigin(c)) return c.json({ error: 'Forbidden', code: 'ADMIN_ORIGIN_DENIED' }, 403)
+  if (!c.env.REWARD_ADMIN_USERNAME || !c.env.REWARD_ADMIN_PASSWORD_HASH) return c.json({ error: 'Admin sign-in is not configured.', code: 'ADMIN_NOT_CONFIGURED' }, 503)
+  const body = await c.req.json().catch(() => null) as { username?: unknown; password?: unknown } | null
+  if (typeof body?.username !== 'string' || typeof body.password !== 'string' || body.username.length > 128 || body.password.length > 1024) return c.json({ error: 'Username or password is incorrect.', code: 'ADMIN_LOGIN_FAILED' }, 401)
+  let credentialsMatch = false
+  try { credentialsMatch = await verifyAdminCredentials(body.username, body.password, c.env.REWARD_ADMIN_USERNAME, c.env.REWARD_ADMIN_PASSWORD_HASH) } catch { credentialsMatch = false }
+  if (!credentialsMatch) return c.json({ error: 'Username or password is incorrect.', code: 'ADMIN_LOGIN_FAILED' }, 401)
+  const token = randomToken()
+  const expiresAt = new Date(Date.now() + ADMIN_SESSION_TTL_SECONDS * 1_000).toISOString()
+  await sqlFor(c.env)`INSERT INTO admin_sessions(username,token_hash,expires_at)
+    VALUES(${c.env.REWARD_ADMIN_USERNAME},${await sha256(token)},${expiresAt})`
+  setCookie(c, ADMIN_SESSION_COOKIE, token, adminCookieOptions())
+  return c.json({ success: true, expiresAt })
+})
+
+app.get('/api/admin/session', async (c) => {
+  const admin = await requireAdmin(c)
+  if (!admin) return c.json({ error: 'Admin sign-in required.', code: 'ADMIN_UNAUTHENTICATED' }, 401)
+  return c.json({ authenticated: true, username: admin.username })
+})
+
+app.post('/api/admin/auth/logout', async (c) => {
+  const admin = await requireAdmin(c)
+  if (!admin) return c.json({ error: 'Admin sign-in required.', code: 'ADMIN_UNAUTHENTICATED' }, 401)
+  const token = getCookie(c, ADMIN_SESSION_COOKIE)
+  if (token) await sqlFor(c.env)`UPDATE admin_sessions SET revoked_at=now() WHERE token_hash=${await sha256(token)} AND revoked_at IS NULL`
+  deleteCookie(c, ADMIN_SESSION_COOKIE, { path: '/api/admin', secure: true, sameSite: 'Strict' })
+  return c.json({ success: true })
+})
+
+app.get('/api/admin/inventory', async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: 'Admin sign-in required.', code: 'ADMIN_UNAUTHENTICATED' }, 401)
+  const slots = await sqlFor(c.env)`SELECT slot.reward_type,slot.slot_number,code.status AS code_status,
+      redemption.id AS redemption_id,redemption.delivery_status,redemption.failure_info,redemption.updated_at AS redemption_updated_at
+    FROM reward_inventory_slots slot LEFT JOIN reward_codes code ON code.id=slot.reward_code_id
+    LEFT JOIN reward_redemptions redemption ON redemption.reward_code_id=code.id
+    ORDER BY slot.reward_type,slot.slot_number`
+  const mapped = slots.map((row) => ({
+    rewardType: row.reward_type as RewardType,
+    slotNumber: Number(row.slot_number),
+    status: row.code_status === null ? 'empty'
+      : row.code_status === 'available' ? 'available'
+        : row.code_status === 'delivered' ? 'used'
+          : row.delivery_status === 'rejected' ? 'rejected'
+    : row.delivery_status === 'provider_unknown' || (row.delivery_status === 'sending' && new Date(String(row.redemption_updated_at)).getTime() < Date.now() - 600_000) ? 'provider_unknown'
+              : row.delivery_status === 'sending' ? 'sending'
+              : row.delivery_status === 'accepted' ? 'accepted' : 'reserved',
+    redemptionId: row.redemption_id ?? null,
+    failureInfo: row.failure_info ?? null,
+  }))
+  return c.json({
+    slots: mapped,
+    delivery: {
+      enabled: c.env.REWARD_EMAIL_DELIVERY_ENABLED === 'true',
+      apiKeyConfigured: Boolean(c.env.RESEND_API_KEY),
+      senderConfigured: Boolean(c.env.RESEND_FROM_EMAIL),
+      webhookConfigured: Boolean(c.env.RESEND_WEBHOOK_SECRET),
+      encryptionConfigured: Boolean(c.env.REWARD_ENCRYPTION_KEY),
+      enabledAndConfigured: c.env.REWARD_EMAIL_DELIVERY_ENABLED === 'true' && Boolean(c.env.RESEND_API_KEY && c.env.RESEND_FROM_EMAIL && c.env.RESEND_WEBHOOK_SECRET && c.env.REWARD_ENCRYPTION_KEY),
+    },
+  })
+})
+
+app.post('/api/admin/inventory/:rewardType/:slotNumber', async (c) => {
+  const admin = await requireAdmin(c)
+  if (!admin) return c.json({ error: 'Admin sign-in required.', code: 'ADMIN_UNAUTHENTICATED' }, 401)
   if (!c.env.REWARD_ENCRYPTION_KEY) return c.json({ error: 'Reward encryption is not configured.', code: 'REWARD_CONFIG_MISSING' }, 503)
-  const body = await c.req.json().catch(() => null) as { rewardType?: unknown; codes?: unknown } | null
+  const rewardType = c.req.param('rewardType') as RewardType
   const choices = new Set<RewardType>(['robux', 'freefire', 'vbucks', 'pubg', 'cod'])
-  if (typeof body?.rewardType !== 'string' || !choices.has(body.rewardType as RewardType) || !Array.isArray(body.codes) || body.codes.length < 1 || body.codes.length > 250 || body.codes.some((code) => typeof code !== 'string' || !code.trim() || code.length > 256)) return c.json({ error: 'Invalid import payload.', code: 'INVALID_IMPORT' }, 400)
-  const rewardType = body.rewardType as RewardType
-  let imported = 0
-  for (const raw of body.codes as string[]) {
-    const encrypted = await encryptRewardCode(raw, rewardType, c.env.REWARD_ENCRYPTION_KEY)
-    const [row] = await sqlFor(c.env)`INSERT INTO reward_codes(reward_type,encrypted_code,iv,authentication_tag,fingerprint)
-      VALUES(${rewardType},${encrypted.encryptedCode},${encrypted.iv},${encrypted.authenticationTag},${encrypted.fingerprint})
-      ON CONFLICT(fingerprint) DO NOTHING RETURNING id`
-    if (row) imported += 1
-  }
-  return c.json({ success: true, imported, duplicates: body.codes.length - imported })
+  const slotNumber = Number(c.req.param('slotNumber'))
+  if (!choices.has(rewardType) || !Number.isInteger(slotNumber) || slotNumber < 1 || slotNumber > 20) return c.json({ error: 'Invalid reward slot.', code: 'INVALID_SLOT' }, 400)
+  const body = await c.req.json().catch(() => null) as { code?: unknown } | null
+  if (typeof body?.code !== 'string' || !body.code.trim() || body.code.length > 256) return c.json({ error: 'Enter a redeem code up to 256 characters.', code: 'INVALID_REWARD_CODE' }, 400)
+  const encrypted = await encryptRewardCode(body.code, rewardType, c.env.REWARD_ENCRYPTION_KEY)
+  const [updated] = await sqlFor(c.env)`WITH locked AS MATERIALIZED (
+      SELECT s.reward_type,s.slot_number,s.reward_code_id FROM reward_inventory_slots s
+      WHERE s.reward_type=${rewardType} AND s.slot_number=${slotNumber} FOR UPDATE
+    ), inserted AS (
+      INSERT INTO reward_codes(reward_type,encrypted_code,iv,authentication_tag,fingerprint)
+      SELECT ${rewardType},${encrypted.encryptedCode},${encrypted.iv},${encrypted.authenticationTag},${encrypted.fingerprint}
+      FROM locked l WHERE l.reward_code_id IS NULL OR EXISTS(
+        SELECT 1 FROM reward_codes prior WHERE prior.id=l.reward_code_id AND prior.status='delivered'
+      )
+      ON CONFLICT(fingerprint) DO NOTHING RETURNING id
+    ), assigned AS (
+      UPDATE reward_inventory_slots s SET reward_code_id=i.id,updated_at=now()
+      FROM inserted i,locked l WHERE s.reward_type=l.reward_type AND s.slot_number=l.slot_number
+        AND s.reward_code_id IS NOT DISTINCT FROM l.reward_code_id
+      RETURNING s.reward_type,s.slot_number
+    ) SELECT reward_type,slot_number FROM assigned`
+  if (!updated) return c.json({ error: 'Slot is occupied or this code already exists. No changes were made.', code: 'SLOT_OR_DUPLICATE' }, 409)
+  await sqlFor(c.env)`INSERT INTO audit_logs(action,target_type,target_id,metadata)
+    VALUES('reward_code_import','reward_inventory_slot',${`${rewardType}:${slotNumber}`},jsonb_build_object('admin',${admin.username},'rewardType',${rewardType},'slotNumber',${slotNumber}))`
+  return c.json({ success: true, rewardType, slotNumber, status: 'available' })
+})
+
+app.get('/api/admin/redemptions', async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: 'Admin sign-in required.', code: 'ADMIN_UNAUTHENTICATED' }, 401)
+  const rows = await sqlFor(c.env)`SELECT id,user_id,recipient_email,reward_type,inventory_slot_number,delivery_status,
+      provider_message_id,failure_info,created_at,updated_at,delivery_attempt,
+      CASE WHEN delivery_status='sending' AND updated_at < now()-interval '10 minutes' THEN 'provider_unknown' ELSE delivery_status END AS display_status
+    FROM reward_redemptions ORDER BY created_at DESC LIMIT 100`
+  return c.json({ redemptions: rows.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    email: row.recipient_email,
+    rewardType: row.reward_type,
+    slotNumber: row.inventory_slot_number,
+    deliveryStatus: row.display_status,
+    resendMessageId: row.provider_message_id,
+    failureInfo: row.failure_info,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deliveryAttempt: row.delivery_attempt,
+  })) })
+})
+
+app.post('/api/admin/redemptions/:redemptionId/retry', async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: 'Admin sign-in required.', code: 'ADMIN_UNAUTHENTICATED' }, 401)
+  if (c.env.REWARD_EMAIL_DELIVERY_ENABLED !== 'true' || !c.env.RESEND_API_KEY || !c.env.RESEND_FROM_EMAIL || !c.env.RESEND_WEBHOOK_SECRET || !c.env.REWARD_ENCRYPTION_KEY) return c.json({ error: 'Reward email delivery is disabled or incomplete.', code: 'REWARDS_DISABLED' }, 503)
+  const redemptionId = c.req.param('redemptionId')
+  if (!/^[0-9a-f-]{36}$/i.test(redemptionId)) return c.json({ error: 'Invalid redemption.', code: 'INVALID_REDEMPTION' }, 400)
+  const [prior] = await sqlFor(c.env)`SELECT r.id,r.delivery_status FROM reward_redemptions r WHERE r.id=${redemptionId} LIMIT 1`
+  if (!prior) return c.json({ error: 'Redemption not found.', code: 'REDEMPTION_NOT_FOUND' }, 404)
+  if (prior.delivery_status !== 'rejected' && prior.delivery_status !== 'reserved') return c.json({ error: 'Only a confirmed rejected or not-yet-sent redemption may be retried. Reconcile ambiguous delivery first.', code: 'RETRY_NOT_SAFE' }, 409)
+  const [prepared] = await prepareAdminDelivery(c, redemptionId, prior.delivery_status === 'rejected')
+  if (!prepared) return c.json({ error: 'Redemption state changed; refresh before retrying.', code: 'REDEMPTION_STATE_CHANGED' }, 409)
+  await sqlFor(c.env)`INSERT INTO audit_logs(action,target_type,target_id,metadata)
+    VALUES('reward_email_retry','reward_redemption',${redemptionId},jsonb_build_object('attempt',${prepared.delivery_attempt}))`
+  return sendReservedRedemption(c, prepared as unknown as RewardRedemption)
+})
+
+app.post('/api/admin/redemptions/:redemptionId/reconcile', async (c) => {
+  const admin = await requireAdmin(c)
+  if (!admin) return c.json({ error: 'Admin sign-in required.', code: 'ADMIN_UNAUTHENTICATED' }, 401)
+  const redemptionId = c.req.param('redemptionId')
+  if (!/^[0-9a-f-]{36}$/i.test(redemptionId)) return c.json({ error: 'Invalid redemption.', code: 'INVALID_REDEMPTION' }, 400)
+  const body = await c.req.json().catch(() => null) as { resolution?: unknown; messageId?: unknown } | null
+  if (body?.resolution !== 'sent' && body?.resolution !== 'not_sent') return c.json({ error: 'Choose a verified delivery result.', code: 'INVALID_RECONCILIATION' }, 400)
+  if (body.resolution === 'sent' && (typeof body.messageId !== 'string' || body.messageId.length < 3 || body.messageId.length > 128)) return c.json({ error: 'A Resend message ID is required when confirming delivery.', code: 'INVALID_RECONCILIATION' }, 400)
+  const sent = body.resolution === 'sent'
+  const [row] = await sqlFor(c.env)`WITH changed AS (
+      UPDATE reward_redemptions r SET status=${sent ? 'sent' : 'failed'},delivery_status=${sent ? 'sent' : 'rejected'},
+        provider_message_id=CASE WHEN ${sent} THEN ${body.messageId ?? null} ELSE r.provider_message_id END,
+        failure_info=CASE WHEN ${sent} THEN NULL ELSE 'admin_confirmed_not_sent' END,delivery_updated_at=now(),updated_at=now()
+      WHERE r.id=${redemptionId} AND (r.delivery_status='provider_unknown' OR (r.delivery_status='sending' AND r.updated_at < now()-interval '10 minutes'))
+      RETURNING r.reward_code_id,r.status
+    ), marked AS (
+      UPDATE reward_codes c SET status=CASE WHEN changed.status='sent' THEN 'delivered' ELSE c.status END,
+        delivered_at=CASE WHEN changed.status='sent' THEN now() ELSE c.delivered_at END
+      FROM changed WHERE c.id=changed.reward_code_id RETURNING c.id
+    ) SELECT id FROM marked`
+  if (!row) return c.json({ error: 'Redemption is not awaiting reconciliation.', code: 'REDEMPTION_STATE_CHANGED' }, 409)
+  await sqlFor(c.env)`INSERT INTO audit_logs(action,target_type,target_id,metadata)
+    VALUES('reward_email_reconciled','reward_redemption',${redemptionId},jsonb_build_object('admin',${admin.username},'resolution',${body.resolution}))`
+  return c.json({ success: true, status: sent ? 'sent' : 'rejected' })
 })
 
 app.post('/api/mylead/start', async (c) => {
@@ -699,6 +973,17 @@ app.post('/api/anti-cheat/report', async (c) => {
 
 app.all('*', async (c) => {
   if (c.req.path.startsWith('/api/')) return c.json({ error: 'Route not found', code: 'NOT_FOUND' }, 404)
+  if (new URL(c.req.url).hostname === 'admin.dashcup.com') {
+    if (c.req.method !== 'GET' || (c.req.path !== '/' && c.req.path !== '/index.html')) return c.text('Not found', 404)
+    const nonce = randomToken(18)
+    c.header('Cache-Control', 'no-store')
+    c.header('X-Robots-Tag', 'noindex, nofollow, noarchive')
+    c.header('X-Content-Type-Options', 'nosniff')
+    c.header('X-Frame-Options', 'DENY')
+    c.header('Referrer-Policy', 'no-referrer')
+    c.header('Content-Security-Policy', `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src https://api.dashcup.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`)
+    return c.html(renderAdminPortal(nonce))
+  }
   return c.env.ASSETS.fetch(c.req.raw)
 })
 

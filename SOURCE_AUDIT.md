@@ -125,3 +125,12 @@ Audit date: 2026-10-02
 - Existing Worker production version is `b38fe224-1a9f-4c2d-b319-6f1abd253587`; its game assets include the Expo origin and handshake fix. API health/Neon, CORS, anonymous start rejection, logo resources and game asset checks passed.
 - The linked Three.js fork was inspected but the user’s already integrated Expo game remains unchanged as gameplay source.
 - Browser click-through and loss-screen gameplay were not verified interactively because headless CDP startup is blocked by the installed Brave build’s `Multiple targets are not supported` error.
+
+## Redeem/admin implementation source audit — 2026-10-03
+
+- Existing rewards schema, redemption endpoints, user session, Worker, and Pages UI were extended rather than replaced. Five established reward names/keys remain unchanged: Robux (`robux`), Free Fire Diamonds (`freefire`), V-Bucks (`vbucks`), PUBG UC (`pubg`), and COD Points (`cod`).
+- `reward_inventory_slots` enforces 20 slots per category (100 total), and points at the existing encrypted `reward_codes` records. Migration 0006 safely checks the 20-per-type ceiling before backfilling; verified production inventory was empty. Migration 0007 adds ownership verification fields; both are applied on existing staging and production branches.
+- User code allocation is limited to the verified reward email, selected `giftChoice`, Top-20 eligibility and closed-cycle record. Same-type selection and no-code stock checks are server-side; an atomic CTE locks the user and a same-type available code, inserts the unique redemption and reserves the code. A failed delivery cannot allocate a second code for that redemption.
+- Admin portal is a tiny HTML/CSS/JS document served by the existing Worker only at `admin.dashcup.com`. Wrangler's default asset fast path initially bypassed the portal for `/`; `run_worker_first` now includes root and `/index.html` as well as API routes. This was verified from live CSP/no-store/noindex headers; game static assets still use the asset binding.
+- Admin portal UI supports five 20-slot pools, refills empty/used slots, bounded delivery history, retry of rejected delivery, and operator reconciliation for provider-unknown outcomes. It never receives stored code values; new code is sent over HTTPS to the authenticated Worker and encrypted before Neon storage.
+- Security/config and test limitations are documented in SECURITY_AUDIT.md and BLOCKERS.md. No real code values, provider IDs, or secrets are in the repo. No Resend account connector was available for verification.

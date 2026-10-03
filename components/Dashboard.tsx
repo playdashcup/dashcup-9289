@@ -30,19 +30,25 @@ export function Dashboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null)
   const [eligibility, setEligibility] = useState<EligibilityResponse | null>(null)
   const [referral, setReferral] = useState<ReferralLinkResponse | null>(null)
+  const [rewardStock, setRewardStock] = useState<Record<string, number> | undefined>()
+  const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null)
+  const [emailVerificationMessage, setEmailVerificationMessage] = useState<string | null>(null)
   const [booting, setBooting] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try {
       const referralCode = new URLSearchParams(window.location.search).get('ref') ?? undefined
+      const verificationToken = new URLSearchParams(window.location.hash.slice(1)).get('verify_reward_email')
       const bootstrap = await api.bootstrap(referralCode)
       window.history.replaceState({}, '', window.location.pathname)
+      if (verificationToken && /^[a-f0-9]{64}$/i.test(verificationToken)) setEmailVerificationToken(verificationToken)
       setMe(bootstrap.me)
       setQuests(bootstrap.quests)
       setLeaderboard(bootstrap.leaderboard)
       setEligibility(bootstrap.eligibility)
       setReferral(bootstrap.referral)
+      setRewardStock(bootstrap.rewardStock)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to connect to DASHCUP')
     } finally { setBooting(false) }
@@ -64,9 +70,23 @@ export function Dashboard() {
     setQuests((current) => current?.map((quest) => quest.id === result.quest.id ? result.quest : quest) ?? current)
   }, [])
 
-  const onRewardDetailsSaved = useCallback((rewardEmail: string, giftChoice: string) => {
-    setMe((current) => current ? { ...current, rewardEmail, giftChoice } : current)
+  const onRewardDetailsSaved = useCallback((rewardEmail: string, giftChoice: string, rewardEmailVerified: boolean) => {
+    setMe((current) => current ? { ...current, rewardEmail, giftChoice, rewardEmailVerified } : current)
   }, [])
+
+  const verifyRewardEmail = useCallback(async () => {
+    if (!emailVerificationToken) return
+    setEmailVerificationMessage(null)
+    try {
+      await api.verifyRewardEmail(emailVerificationToken)
+      setMe((current) => current ? { ...current, rewardEmailVerified: true } : current)
+      setEmailVerificationMessage('Reward email verified. You can now redeem rewards to this address.')
+      setEmailVerificationToken(null)
+    } catch (cause) {
+      setEmailVerificationMessage(cause instanceof Error ? cause.message : 'This verification link is invalid or expired. Request a new link from Rewards.')
+      setEmailVerificationToken(null)
+    }
+  }, [emailVerificationToken])
 
   const trophyLabel = me?.trophies == null ? '—' : me.trophies.toLocaleString()
 
@@ -107,6 +127,8 @@ export function Dashboard() {
           {sections.map(({ id, label, icon: Icon }) => <NavButton key={id} active={active === id} onClick={() => setActive(id)} label={label} Icon={Icon} />)}
         </nav>
 
+        {emailVerificationToken && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100"><span>Confirm this address to receive reward emails.</span><button onClick={() => void verifyRewardEmail()} className="rounded-lg bg-cyan-200 px-3 py-2 font-black text-indigo-950">Verify email</button></div>}
+        {emailVerificationMessage && <div className="mb-4 rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100" role="status">{emailVerificationMessage}</div>}
         {error && <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200"><span>{error}</span><button onClick={() => { setBooting(true); void loadData() }} className="font-bold underline">Try again</button></div>}
         {booting ? <div className="grid min-h-[440px] place-items-center rounded-3xl border border-white/10 bg-white/[0.025]"><div className="text-center"><div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-cyan-300/20 border-t-cyan-300" /><p className="font-mono text-xs uppercase tracking-widest text-zinc-500">Syncing DASHCUP</p></div></div> : <>
           {active === 'arcade' && <>
@@ -117,7 +139,7 @@ export function Dashboard() {
           </>}
           {active === 'quests' && <QuestBoard quests={quests} onClaimed={onQuestClaimed} />}
           {active === 'leaderboard' && <Leaderboard data={leaderboard} onRetry={async () => setLeaderboard(await api.getLeaderboard())} />}
-          {active === 'rewards' && <RewardPanel eligibility={eligibility} me={me} onDetailsSaved={onRewardDetailsSaved} />}
+          {active === 'rewards' && <RewardPanel eligibility={eligibility} me={me} rewardStock={rewardStock} onDetailsSaved={onRewardDetailsSaved} />}
         </>}
       </main>
 

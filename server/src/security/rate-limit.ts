@@ -15,6 +15,8 @@ export function isExpensiveMutation(method: string, path: string) {
     || /^\/api\/quests\/[^/]+\/claim$/.test(path)
     || path === '/api/rewards/redeem'
     || path === '/api/rewards/email'
+    || path === '/api/rewards/email/verify'
+    || path.startsWith('/api/admin/')
     || path === '/api/mylead/start'
     || path === '/webhooks/resend'
 }

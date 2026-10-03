@@ -156,3 +156,11 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - This continuation's final production Worker promotion and Git push are still pending; see the final continuation report/status.
 
 - Resolved: the quest catalog Worker promotion completed as version `77d7cd6b-def8-40c8-a66c-f8edff96c3a9`. Production API health/Neon, quest bootstrap and game asset route were checked after deployment. Pages was correctly left untouched because the UI reads the API catalog and had no source change.
+
+## Current external setup required — 2026-10-03
+
+- **Admin login is not configured.** Production Worker secrets contain only `DATABASE_URL`. The private portal is live at `https://admin.dashcup.com/`, but login returns `503 ADMIN_NOT_CONFIGURED` until the owner chooses an admin username/password and sets `REWARD_ADMIN_USERNAME` and `REWARD_ADMIN_PASSWORD_HASH` Worker secrets. The password must be PBKDF2-hashed with `server/scripts/hash-admin-password.mjs`; never store the plaintext password.
+- **No redeem codes are loaded.** Production Neon has 100 empty slots, exactly 20 per reward type. Set `REWARD_ENCRYPTION_KEY` before importing codes, then use the admin portal to fill the correct slots. No test/fabricated codes were inserted.
+- **Reward delivery is safely disabled.** Production `REWARD_EMAIL_DELIVERY_ENABLED=false`; the production secret list has no `RESEND_API_KEY`, sender address, webhook signing secret or encryption key. Configure a verified Resend sender and the secret values, point the signed webhook at `https://api.dashcup.com/webhooks/resend`, test, and explicitly enable the feature flag. Resend tools were not connected in this workspace, so domain verification is not independently confirmed.
+- **Runtime test gaps:** With no admin credentials and no real stock, successful admin login, real slot import, concurrent redemption allocation, end-to-end email acceptance/webhook, and delivery retry/reconcile against Resend remain unverified. Unit tests, staging and production smoke checks pass as recorded in BUILD_REPORT.md.
+- Git commit/push and automatic Pages deployment are pending final changeset review and repository push; do not infer either from the Worker deploy.

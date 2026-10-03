@@ -6,8 +6,10 @@ import { isExpensiveMutation, isRateLimited, rateLimitKey } from '../src/securit
 import { biweeklyId, dayId, QUESTS, randomDisplayName, sanitizeClientSignals, validateEvidence, weekId } from '../src/domain.ts'
 import { constantTimeStringEqual } from '../src/security/timing-safe.ts'
 import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '../src/security/reward-code.ts'
-import { rewardEmailTemplate } from '../src/email/reward-template.ts'
+import { rewardEmailTemplate, rewardEmailVerificationTemplate } from '../src/email/reward-template.ts'
 import { sendRewardEmail } from '../src/email/resend.ts'
+import { verifyAdminCredentials, verifyAdminPassword } from '../src/security/admin-auth.ts'
+import { renderAdminPortal } from '../src/admin/portal.ts'
 
 test('hashes both strings to fixed-size inputs before timing-safe comparison', async () => {
   const comparisons = []
@@ -35,6 +37,31 @@ test('caps streamed request bodies before JSON handlers receive them', async () 
   const rejected = await app.request('/api/test', { method: 'POST', body: '{"a":10}' })
   assert.equal(rejected.status, 413)
   assert.deepEqual(await rejected.json(), { code: 'PAYLOAD_TOO_LARGE' })
+})
+
+test('verifies PBKDF2 admin password hashes without accepting malformed or weak hashes', async () => {
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('dashboard-test-password'), 'PBKDF2', false, ['deriveBits'])
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 210_000 }, key, 256))
+  const encoded = (bytes) => Buffer.from(bytes).toString('base64')
+  const hash = `pbkdf2-sha256$210000$${encoded(salt)}$${encoded(bits)}`
+  assert.equal(await verifyAdminPassword('dashboard-test-password', hash), true)
+  assert.equal(await verifyAdminPassword('wrong-password', hash), false)
+  assert.equal(await verifyAdminCredentials('dashcup-test', 'dashboard-test-password', 'dashcup-test', hash), true)
+  assert.equal(await verifyAdminCredentials('intruder', 'dashboard-test-password', 'dashcup-test', hash), false)
+  assert.equal(await verifyAdminPassword('dashboard-test-password', `pbkdf2-sha256$1000$${encoded(salt)}$${encoded(bits)}`), false)
+  assert.equal(await verifyAdminPassword('dashboard-test-password', 'plaintext-password'), false)
+})
+
+test('admin portal has nonce CSP hooks and does not persist credentials or include inventory secrets', () => {
+  const html = renderAdminPortal('unit-test-nonce')
+  assert.match(html, /script nonce="unit-test-nonce"/)
+  assert.match(html, /\/ 20/)
+  assert.doesNotMatch(html, /localStorage|sessionStorage|RESEND_API_KEY|encrypted_code/)
+  assert.match(html, /autocomplete="current-password"/)
+  assert.match(html, /Confirm sent/)
+  assert.match(html, /Confirm not sent/)
+  assert.match(html, /\/reconcile/)
 })
 
 test('returns a 429 response when the Cloudflare rate-limit binding rejects a request', async () => {
@@ -72,6 +99,8 @@ test('applies the stricter mutation budget only to expensive POST routes', () =>
   assert.equal(isExpensiveMutation('POST', '/api/quests/daily%3Afoo/claim'), true)
   assert.equal(isExpensiveMutation('POST', '/api/rewards/redeem'), true)
   assert.equal(isExpensiveMutation('POST', '/api/rewards/email'), true)
+  assert.equal(isExpensiveMutation('POST', '/api/rewards/email/verify'), true)
+  assert.equal(isExpensiveMutation('POST', '/api/admin/auth/login'), true)
   assert.equal(isExpensiveMutation('POST', '/webhooks/resend'), true)
   assert.equal(isExpensiveMutation('GET', '/api/rewards/status'), false)
   assert.equal(isExpensiveMutation('POST', '/api/leaderboard'), false)
@@ -167,7 +196,17 @@ test('reward email template escapes HTML and includes a plain-text alternative',
   const template = rewardEmailTemplate('<img src=x onerror=alert(1)>', 'robux')
   assert.match(template.html, /&lt;img/)
   assert.match(template.text, /<img/)
-  assert.equal(template.subject, 'Your ChickenDash robux reward')
+  assert.equal(template.subject, 'DASHCUP Reward — Your Robux Code')
+  assert.match(rewardEmailTemplate('ONLY-CODE', 'vbucks').text, /V-Bucks/)
+  assert.doesNotMatch(rewardEmailTemplate('ONLY-CODE', 'vbucks').text, /Robux|PUBG/)
+})
+
+test('reward email verification template escapes its link and does not contain reward codes', () => {
+  const template = rewardEmailVerificationTemplate('https://www.dashcup.com/#verify_reward_email=secret-token')
+  assert.match(template.subject, /Verify your reward email/)
+  assert.match(template.html, /https:\/\/www\.dashcup\.com/)
+  assert.doesNotMatch(template.html, /Robux|V-Bucks|PUBG UC|Free Fire Diamonds|Call of Duty Points/)
+  assert.match(template.text, /secret-token/)
 })
 
 test('Resend send uses the redemption idempotency key and classifies accepted delivery', async () => {

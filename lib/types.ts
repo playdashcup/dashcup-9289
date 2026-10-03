@@ -43,6 +43,7 @@ export interface MeResponse {
   personalBest?: number
   referralCode?: string
   rewardEmail?: string | null
+  rewardEmailVerified?: boolean
   giftChoice?: string | null
   streak?: number
 }
@@ -54,6 +55,7 @@ export interface EligibilityResponse {
   rewardEmail?: string | null
   giftChoice?: string | null
   redeemed?: boolean
+  deliveryStatus?: 'reserved' | 'accepted' | 'sent' | 'rejected' | 'provider_unknown' | null
 }
 
 export interface LeaderboardEntry {
@@ -90,6 +92,7 @@ export interface BootstrapResponse {
   leaderboard: LeaderboardResponse
   eligibility: EligibilityResponse
   referral: ReferralLinkResponse
+  rewardStock?: Record<string, number>
 }
 
 export interface EndGamePayload {
