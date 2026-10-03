@@ -154,3 +154,5 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Remaining optimization gate: the current one-start/one-end-per-run protocol is intentionally retained to preserve per-run tokens, evidence, and duplicate protection. A once-daily aggregate sync would require a secure protocol redesign and adversarial coverage; it is not delivered, so 10,000–50,000 DAU capacity is not established. Source-based request/query projections are documented in `RESOURCE_BUDGET.md`.
 - Neon live cumulative query metrics could not be read because `pg_stat_statements` is absent. No extension was installed.
 - This continuation's final production Worker promotion and Git push are still pending; see the final continuation report/status.
+
+- Resolved: the quest catalog Worker promotion completed as version `77d7cd6b-def8-40c8-a66c-f8edff96c3a9`. Production API health/Neon, quest bootstrap and game asset route were checked after deployment. Pages was correctly left untouched because the UI reads the API catalog and had no source change.
