@@ -245,9 +245,13 @@ class Game extends Component {
   };
 
   renderGameOver = () => {
-    // The embedded ChickenDash bridge owns restart/reward controls. Suppress
-    // the source game's unrelated offer/settings/share/leaderboard footer.
-    if (this.state.gameState !== State.Game.gameOver || this.dashcupRun) {
+    // The embedded ChickenDash bridge owns failure controls. Suppress the
+    // source game's unrelated offer/settings/share/leaderboard overlay.
+    if (
+      this.state.gameState !== State.Game.gameOver ||
+      this.dashcupParentOrigin ||
+      this.dashcupRun
+    ) {
       return null;
     }
 

@@ -5,10 +5,6 @@ import ModelLoader from "../ModelLoader";
 import { disableDriftwood } from "../GameSettings";
 import Foam from "../Particles/Foam";
 
-const RIVER_WRAP_OFFSET = 11;
-const LOG_SPACING = 2.2;
-const LOG_COUNT = Math.ceil((RIVER_WRAP_OFFSET * 2) / LOG_SPACING);
-
 export default class Water extends Object3D {
   active = false;
   entities = [];
@@ -109,20 +105,21 @@ export default class Water extends Object3D {
   };
 
   generateDynamic = () => {
+    // Speeds: .01 through .08
+    // Number of cars: 1 through 3
     let speed = Math.random() * 0.05 + 0.02;
+    let numItems = Math.floor(Math.random() * 2) + 2;
     let xDir = 1;
 
     if (Math.random() > 0.5) {
       xDir = -1;
     }
 
-    let xPos = RIVER_WRAP_OFFSET * -xDir;
+    let xPos = -6 * xDir;
 
-    for (let x = 0; x < LOG_COUNT; x++) {
+    for (let x = 0; x < numItems; x++) {
       if (this.entities.length - 1 < x) {
-        // The two longer source models bridge the lane without the tiny
-        // one-unit logs leaving unrideable gaps between platforms.
-        let mesh = ModelLoader._log.getNode(Math.random() < 0.5 ? "2" : "3");
+        let mesh = ModelLoader._log.getRandom();
         const width = this.getWidth(mesh);
 
         this.entities.push({
@@ -142,7 +139,7 @@ export default class Water extends Object3D {
       this.entities[x].speed = speed * xDir;
       // this.entities[x].mesh.rotation.y = (Math.PI / 2) * xDir;
 
-      xPos += LOG_SPACING * xDir;
+      xPos -= (Math.random() * 3 + 5) * xDir;
     }
   };
 
@@ -209,7 +206,7 @@ export default class Water extends Object3D {
   };
 
   move = ({ dt, player, entity }) => {
-    const offset = RIVER_WRAP_OFFSET;
+    const offset = 11;
 
     entity.mesh.position.x += entity.speed;
 
