@@ -152,4 +152,4 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - Existing Worker `dashcup-9289`: production version `c06cf1cc-9a75-4774-b6fa-df2d11427bfe` on `api.dashcup.com` and `game.dashcup.com`; staging version `a6e29250-5a39-4125-b0f9-25aaf0192b8c`.
 - The Expo bundle now imports the GSAP compatibility names used by the game, fixes the initial move timing race, retries the iframe handshake safely, and gates web audio until a gesture in the iframe.
 - Live production browser Start reached gameplay with score 1; production health reports Neon connected. Staging confirmed score 1 → 1 trophy and duplicate-end 409.
-- Current pushed repository HEAD: `05705624e271ba6718b4a3167221346293cbea74` on `codex/dashcup-rebuild`.
+- Repair source commits and follow-up deployment documentation are pushed on `codex/dashcup-rebuild`.
