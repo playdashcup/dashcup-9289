@@ -125,8 +125,8 @@ export class CrossyCamera extends OrthographicCamera {
     this.right = width * scale;
     this.top = height * scale;
     this.bottom = -(height * scale);
-    // Zoom the camera out so more of the playable field stays visible.
-    this.zoom = 200;
+    // A 30% wider field of view than the previous zoom level.
+    this.zoom = 154;
     this.updateProjectionMatrix();
   };
 }
