@@ -44,6 +44,13 @@ class Game extends Component {
   onDashcupMessage = (event) => {
     if (event.source !== window.parent || event.origin !== this.dashcupParentOrigin) return;
     const message = event.data;
+    if (message?.type === "dashcup:move") {
+      const validDirections = [swipeDirections.SWIPE_UP, swipeDirections.SWIPE_DOWN, swipeDirections.SWIPE_LEFT, swipeDirections.SWIPE_RIGHT];
+      if (this.state.gameState === State.Game.playing && validDirections.includes(message.key)) {
+        this.onSwipe(message.key);
+      }
+      return;
+    }
     if (message?.type === "dashcup:ping") {
       window.parent.postMessage({ type: "dashcup:ready" }, this.dashcupParentOrigin);
       return;

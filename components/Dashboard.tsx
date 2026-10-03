@@ -76,7 +76,8 @@ export function Dashboard() {
       <header className="sticky top-0 z-20 border-b-2 border-white/10 bg-[#11142f]/85 shadow-[0_5px_0_rgba(8,12,35,.45)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8">
           <button onClick={() => setActive('arcade')} className="flex items-center gap-3" aria-label="Go to DASHCUP arcade">
-            <Image src="/dashcup-logo/logo.svg" alt="DASHCUP" width={160} height={36} priority className="h-9 w-40 object-contain object-left" />
+            <Image src="/dashcup-logo/dashcup-symbol.png" alt="" width={44} height={44} priority className="size-10 object-contain drop-shadow-[0_0_12px_rgba(0,190,235,.25)]" />
+            <span className="font-mono text-lg font-black tracking-[.12em] text-white">DASHCUP</span>
           </button>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1.5 rounded-full border-2 border-[#8c6935] bg-gradient-to-b from-[#ffe687] to-[#ffc84f] px-2.5 py-1.5 font-mono text-xs font-black text-[#412c36] shadow-[0_4px_0_#754931] sm:gap-2 sm:px-3 sm:py-2 sm:text-sm">

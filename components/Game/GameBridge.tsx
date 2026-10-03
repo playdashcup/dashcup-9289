@@ -80,6 +80,27 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
     }
   }, [onComplete])
 
+  useLayoutEffect(() => {
+    if (state !== 'playing') return
+    const directions: Record<string, string> = {
+      ArrowUp: 'SWIPE_UP',
+      ArrowDown: 'SWIPE_DOWN',
+      ArrowLeft: 'SWIPE_LEFT',
+      ArrowRight: 'SWIPE_RIGHT',
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = directions[event.key]
+      if (!key || event.defaultPrevented) return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
+      event.preventDefault()
+      if (event.repeat) return
+      iframeRef.current?.contentWindow?.postMessage({ type: 'dashcup:move', key }, GAME_ORIGIN)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [state])
+
   const start = async () => {
     setError(null); setResult(null); setState('starting'); inputsRef.current = []; runRef.current = null; finishingRunRef.current = null; acknowledgedRunRef.current = null; clearHandshake()
     try {
@@ -109,7 +130,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
       <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-white/10 bg-white/[0.045] px-4 py-3 sm:px-5 sm:py-4">
         <div className="flex items-center gap-3">
           <div className="grid size-11 place-items-center rounded-2xl border-2 border-[#192047] bg-gradient-to-br from-[#8df7ff] to-[#45cfe9] text-[#182044] shadow-[0_4px_0_#278ca8]"><Gamepad2 className="size-5" /></div>
-          <div><h2 className="text-lg font-black uppercase tracking-wide text-white [text-shadow:0_2px_0_rgba(4,9,35,.7)]">ChickenDash</h2><p className="text-xs text-indigo-100/70">Cross the road. Chase your best.</p></div>
+          <div><h2 className="text-lg font-black uppercase tracking-wide text-white [text-shadow:0_2px_0_rgba(4,9,35,.7)]">ChickenDash</h2><p className="text-xs text-indigo-100/70">Arrow keys or swipe to move.</p></div>
         </div>
         <span className="rounded-full border-2 border-[#354065] bg-[#b9ff69]/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#c9ff87] shadow-[0_3px_0_#101832]">Evidence checks active</span>
       </div>

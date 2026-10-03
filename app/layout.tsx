@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   referrer: 'no-referrer-when-downgrade',
   other: { 'mylead-verification': 'badaceca4b68fe50c9890063072596ee' },
   manifest: '/manifest.webmanifest',
-  icons: { icon: '/dashcup-logo/logo-icon.svg', apple: '/dashcup-logo/logo-icon.png' },
+  icons: { icon: '/dashcup-logo/logo-icon-512.png', apple: '/dashcup-logo/logo-icon.png' },
 }
 
 export const viewport: Viewport = { colorScheme: 'dark', themeColor: '#111536', userScalable: false }
