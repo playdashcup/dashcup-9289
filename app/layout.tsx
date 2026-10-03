@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: 'DASHCUP — Play. Stack. Repeat.',
   description: 'DASHCUP is an arcade hub for trophies, quests, rankings, and rewards.',
   referrer: 'no-referrer-when-downgrade',
+  other: { 'mylead-verification': 'badaceca4b68fe50c9890063072596ee' },
   manifest: '/manifest.webmanifest',
   icons: { icon: '/dashcup-logo/logo-icon.svg', apple: '/dashcup-logo/logo-icon.png' },
 }
