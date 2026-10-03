@@ -145,3 +145,11 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - Production Worker version `b38fe224-1a9f-4c2d-b319-6f1abd253587` serves the existing API and game custom domains. Health/Neon, game asset, CORS allow/deny, apex redirect and anonymous start denial were checked live.
 - The current production game host bundle contains `dashcup:ping`, `dashcup:ready` and apex origin support. Staging checked score award/leaderboard and duplicate run rejection.
 - Browser E2E is not verified: Brave can render the page via `--dump-dom`, while CDP startup exits with `Multiple targets are not supported in headless mode`.
+
+## ChickenDash launch hotfix (2026-10-03)
+
+- Existing Pages project `dashcup-9289`: deployment `8c76b54c-ce5a-4ae4-8be9-a38750bfd867` succeeded and retains `dashcup.com`/`www.dashcup.com`.
+- Existing Worker `dashcup-9289`: production version `c06cf1cc-9a75-4774-b6fa-df2d11427bfe` on `api.dashcup.com` and `game.dashcup.com`; staging version `a6e29250-5a39-4125-b0f9-25aaf0192b8c`.
+- The Expo bundle now imports the GSAP compatibility names used by the game, fixes the initial move timing race, retries the iframe handshake safely, and gates web audio until a gesture in the iframe.
+- Live production browser Start reached gameplay with score 1; production health reports Neon connected. Staging confirmed score 1 → 1 trophy and duplicate-end 409.
+- Current pushed repository HEAD: `05705624e271ba6718b4a3167221346293cbea74` on `codex/dashcup-rebuild`.

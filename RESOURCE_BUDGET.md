@@ -107,3 +107,10 @@ Updated: 2026-10-02
 - Active play adds no network calls: handshake retries are iframe `postMessage`. Session lifecycle remains one start request and one end request.
 - Game score wallet credit, leaderboard upsert, quest/referral changes and one-use run consumption share the existing end SQL statement. Staging score/leaderboard request confirmed 1→1. Quest animation/audio is local-only.
 - No workload/cost benchmark or production synthetic scoring test was run.
+
+## Launch repair resource impact (2026-10-03)
+
+- Added an AbortController timeout to the existing request helper and a 12-second cap for game start; this adds no request.
+- Handshake retries remain same-page `postMessage` until one acknowledgement. No extra Worker calls, Neon writes, polling, or gameplay heartbeats were added.
+- Web audio waits for the first real gesture inside the iframe, avoiding repeated denied playback attempts. No provider calls are involved.
+- Lifecycle remains one game-start API request and one bounded game-end request. Worker tests remain 12/12; no workload cost benchmark was run.

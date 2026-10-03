@@ -171,3 +171,14 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Staging confirmed score 1 → 1 trophy and active leaderboard +1; replay submission returns 409. No production score was injected for testing.
 - Interactive browser E2E is still unverified. Brave `--dump-dom` confirmed production HTML rendering, but remote debugging startup exits with `Multiple targets are not supported in headless mode`; no click-through gameplay result is claimed.
 - The 5x button is only rendered after an accepted game end and remains disabled until trusted rewarded-ad verification exists. Resend, MyLead, Hilltop rewards remain disabled.
+
+## ChickenDash launch failure repaired — 2026-10-03
+
+- Compared the integrated game with [Evan Bacon's Expo Crossy Road source](https://github.com/EvanBacon/Expo-Crossy-Road). The project already used this source; it was not replaced.
+- Reproduced production's `Starting…` state. The iframe bundle crashed with `ReferenceError: TimelineMax is not defined`; several files used GSAP compatibility globals without importing them. Added explicit GSAP imports where used.
+- Fixed the first-move React state race, made duplicate start messages acknowledge idempotently, retried the iframe handshake until acknowledgement, and capped the API start request at 12 seconds.
+- Gated browser audio until a tap/swipe occurs inside the game iframe so cross-origin autoplay denial does not spam errors.
+- `pnpm lint`, Expo web export, frontend build, Worker typecheck, Worker tests (12/12), and production Wrangler dry-run passed. Staging Worker version `a6e29250-5a39-4125-b0f9-25aaf0192b8c`; production Worker version `c06cf1cc-9a75-4774-b6fa-df2d11427bfe`.
+- Staging API smoke passed health/bootstrap/start/end: score 1 awarded 1 trophy; duplicate end was rejected with 409. Production API health returns 200 and Neon connected.
+- Live browser test on `www.dashcup.com`: clicked Start; the iframe became active and score advanced to 1. The final browser console check had no errors. No end request was sent, so this test awarded no production trophies.
+- Existing Pages project deployment `8c76b54c-ce5a-4ae4-8be9-a38750bfd867` deployed commit `e6f49f3`. Current HEAD `05705624e271ba6718b4a3167221346293cbea74` is pushed on `codex/dashcup-rebuild`; working tree is clean.

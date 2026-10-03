@@ -133,6 +133,13 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Staging Worker `c17e0fac-6b50-4871-89c9-5ce62d60dd3f` passed Neon-backed score 1 → trophy 1 and duplicate-run rejection (409). Production Worker and Pages publication are pending this commit.
 - Frontend lint/build, Worker typecheck/tests, and Wrangler dry-runs passed. Browser E2E remains pending; Chrome/Brave are installed, so a CDP smoke attempt can follow publication.
 
+## Current status — 2026-10-03
+
+- Closed: production game appeared stuck on `Starting…`. The integrated Expo bundle crashed because it used GSAP globals without imports. Explicit imports, a first-move state-commit fix, idempotent/retried iframe handshake, and request timeout are deployed.
+- Verified: live browser Start on `www.dashcup.com` reached active gameplay with score 1; final console check had no errors. This verifies launch only, not a complete loss/end/reward flow.
+- Verified: production Worker `c06cf1cc-9a75-4774-b6fa-df2d11427bfe`, staging Worker `a6e29250-5a39-4125-b0f9-25aaf0192b8c`, and existing Pages deployment `8c76b54c-ce5a-4ae4-8be9-a38750bfd867`. HEAD `05705624e271ba6718b4a3167221346293cbea74` is pushed and clean.
+- Remaining limits are unchanged: no deterministic replay; rewarded-ad payouts, MyLead/Hilltop rewards, and Resend delivery stay disabled pending trusted provider setup. `5x Reward` remains UI-only.
+
 ## Production deployment verification (2026-10-02)
 
 - Pushed commit: `19e1a7e60811a33107bd7f34d56444723d2b53df` (`codex/dashcup-rebuild`).

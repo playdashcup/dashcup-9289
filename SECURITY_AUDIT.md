@@ -122,3 +122,10 @@ Updated: 2026-10-02
 - Production Worker version `b38fe224-1a9f-4c2d-b319-6f1abd253587` is serving the existing API/game domains. Live checks returned API health 200 with Neon connected, game asset 200, CORS allowed site origin and rejected unlisted origin, anonymous start 403.
 - Stage integration showed score 1 produces one wallet trophy and one active-cycle leaderboard point; a replayed end token returns 409. This confirms practical plausibility filtering and duplicate protection; deterministic server score reproduction is not implemented or claimed.
 - `GAME_REPLAY_ENABLED=false`; rewarded-ad payouts, Resend delivery and provider rewards remain disabled.
+
+## Startup and evidence verification (2026-10-03)
+
+- The iframe handshake still checks both the exact game origin and source window. Duplicate start messages for the active run repeat only the acknowledgement; they do not reset evidence.
+- API start now aborts after 12 seconds and returns a visible recovery state. Parent retries use iframe `postMessage`; gameplay adds no per-input network requests.
+- A live production browser click started the game and showed score 1. The smoke run was not ended, so it made no production score/trophy write. Staging separately confirmed score 1 → 1 trophy and duplicate-end 409.
+- Web audio is gated until a user gesture inside the iframe. No score validation or reward authority moved to the client.

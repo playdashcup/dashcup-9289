@@ -113,6 +113,12 @@ Audit date: 2026-10-02
 - New assets under `public/dashcup-logo/` include a self-contained SVG lockup/icon, transparent PNG lockup/icon, and ZIP. Header and site icon reference them.
 - Staging test: API bootstrap/start/end accepted score 1 with 1 trophy; reusing the run returned 409. Browser-driven gameplay is not yet verified.
 
+## Expo Crossy Road launch audit (2026-10-03)
+
+- Inspected the public [Evan Bacon Expo Crossy Road repository](https://github.com/EvanBacon/Expo-Crossy-Road) against `games/expo-crossy-road`. DASHCUP already embedded this game source; no second game or replacement engine was added.
+- The upstream source used GSAP `TimelineMax`, `TweenMax`, `TweenLite`, and ease globals without importing all of them. The web bundle therefore threw `ReferenceError: TimelineMax is not defined` before posting iframe readiness.
+- Added explicit imports in the actual game source, fixed the first-move React state timing race, and rebuilt the existing `server/game-dist` export. Live production Start now reaches active gameplay.
+
 ## Live release source check (2026-10-02)
 
 - Source commit `19e1a7e60811a33107bd7f34d56444723d2b53df` is on `origin/codex/dashcup-rebuild`; Cloudflare Pages deployment `86422c0b-89b7-4332-b6bc-65a656a05b84` serves the new DASHCUP logo.
