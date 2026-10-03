@@ -18,6 +18,8 @@ export function isExpensiveMutation(method: string, path: string) {
     || path === '/api/rewards/email/verify'
     || path.startsWith('/api/admin/')
     || path === '/api/mylead/start'
+    || path === '/api/sponsor/offers/start'
+    || path === '/webhooks/cpalead'
     || path === '/webhooks/resend'
 }
 

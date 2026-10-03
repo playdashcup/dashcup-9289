@@ -82,6 +82,13 @@ Updated: 2026-10-02
 - The closed leaderboard query is limited to the top 20 before selecting eligibility; it does not load the full ranking for each dashboard visit. Existing rank index is used in staging's execution plan. Authenticated user data remains uncacheable (`no-store`); only content-addressed game files are immutable cached.
 - Staging verified session/CSRF run start/end, implausible run behavior through existing tests, quest progression/claim, duplicate claim safety, exact-origin CORS and asset delivery. Production verified health/Neon, CORS, unauthenticated start rejection and game/static routes after Worker promotion.
 - No game engine replay rewrite or trusted reward from 5x UI input was added. Reward email, rewarded ads, and provider conversion payouts remain disabled until trusted provider verification/configuration exists.
+
+## CPAlead sponsor integration review — 2026-10-03
+
+- The client cannot complete a sponsor quest: the offer start is CSRF/session protected, the user-to-subid map is generated/stored server-side, and quest progression only occurs from the callback endpoint.
+- `/webhooks/cpalead` accepts a provider GET without browser cookies but requires a separately configured password checked with constant-time comparison, an allowlisted campaign, an allowed country, a recent attributed click UUID and a valid provider `lead_id`. Payout values are ignored. The unique `(provider, transaction_id)` database constraint makes callbacks idempotent, and quest increments share the conversion SQL statement.
+- Tracking links and CPAlead credentials are never included in bootstrap. The publisher API key is not needed by the Offers API and is not used. Because it appeared in chat, rotate it before future use. Campaign display remains disabled until the callback password is configured.
+- Residual checks: no live callback password/provider setup was available, so staging valid/invalid/duplicate conversion cases, provider reversal behavior, and production deployment are unverified. Country is trusted from Cloudflare at page/start request; device is inferred from request UA/client hints and remains a display filter while CPAlead applies its own landing eligibility.
 - No dependency or database schema changes were made. Canonical Bun audit reports 8 Expo advisories (7 high, 1 moderate); frontend production dependency audit reports 56 advisories, including one critical. Browser E2E is unavailable due to environment startup ACL failure.
 
 ## Resource optimization continuation — 2026-10-02

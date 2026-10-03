@@ -10,6 +10,7 @@ import { renderAdminPortal } from './admin/portal'
 import { verifyAdminCredentials } from './security/admin-auth'
 import { isExpensiveMutation, isRateLimited, rateLimitKey } from './security/rate-limit'
 import { biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, randomDisplayName, sanitizeClientSignals, validateEvidence, weekId } from './domain'
+import { appendSponsorSubid, detectSponsorDevice, filterSponsorOffers, isAllowedSponsorTarget, isValidSponsorPostbackId, SPONSOR_CAMPAIGNS, type CpaleadOffer, type SponsorOffer } from './sponsor-offers'
 
 interface Env {
   DATABASE_URL?: string
@@ -27,6 +28,8 @@ interface Env {
   REWARD_EMAIL_DELIVERY_ENABLED?: string
   GAME_REPLAY_ENABLED?: string
   RESEND_WEBHOOK_SECRET?: string
+  CPALEAD_PUBLISHER_ID?: string
+  CPALEAD_POSTBACK_PASSWORD?: string
 }
 
 type Variables = { userId: string; sessionId: string; csrfHash: string }
@@ -39,6 +42,73 @@ const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60
 const ADMIN_ORIGIN = 'https://admin.dashcup.com'
 const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 const RUN_CLOCK_TOLERANCE_MS = 10_000
+const CPALEAD_FEED_TTL_MS = 10 * 60 * 1_000
+const CPALEAD_FEED_CACHE_KEY = 'https://dashcup-cache.invalid/cpalead/publisher-offers-v1'
+let cpaleadFeedMemory: { publisherId: string; offers: CpaleadOffer[]; expiresAt: number; staleUntil: number } | undefined
+let cpaleadFeedRequest: Promise<CpaleadOffer[]> | undefined
+
+async function cpaleadOffers(env: Env): Promise<CpaleadOffer[]> {
+  const publisherId = env.CPALEAD_PUBLISHER_ID?.trim() ?? ''
+  if (!/^\d{1,16}$/.test(publisherId)) return []
+  const now = Date.now()
+  if (cpaleadFeedMemory?.publisherId === publisherId && cpaleadFeedMemory.expiresAt > now) return cpaleadFeedMemory.offers
+  if (cpaleadFeedRequest) return cpaleadFeedRequest
+
+  cpaleadFeedRequest = (async () => {
+    const cache = typeof caches === 'undefined' ? undefined : (caches as CacheStorage & { default?: Cache }).default
+    const cacheKey = new Request(`${CPALEAD_FEED_CACHE_KEY}/${publisherId}`)
+    const cached = await cache?.match(cacheKey).catch(() => undefined)
+    if (cached) {
+      const offers = await cached.json<CpaleadOffer[]>().catch(() => [])
+      if (Array.isArray(offers)) {
+        cpaleadFeedMemory = { publisherId, offers, expiresAt: Date.now() + CPALEAD_FEED_TTL_MS, staleUntil: Date.now() + 60 * 60 * 1_000 }
+        return offers
+      }
+    }
+
+    const url = new URL('https://www.cpalead.com/api/offers')
+    url.searchParams.set('id', publisherId)
+    url.searchParams.set('fields', 'id,title,description,conversion,device,link,payout_type,countries,offer_rank')
+    url.searchParams.set('limit', '2500')
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 4_000)
+    try {
+      const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: controller.signal })
+      if (!response.ok) throw new Error('CPAlead offers unavailable')
+      const body = await response.text()
+      if (body.length > 2_000_000) throw new Error('CPAlead offer feed exceeded size limit')
+      const payload = JSON.parse(body) as { status?: unknown; offers?: unknown }
+      if (payload.status !== 'success' || !Array.isArray(payload.offers) || payload.offers.length > 2_500) throw new Error('CPAlead offers response invalid')
+      const offers = payload.offers as CpaleadOffer[]
+      cpaleadFeedMemory = { publisherId, offers, expiresAt: Date.now() + CPALEAD_FEED_TTL_MS, staleUntil: Date.now() + 60 * 60 * 1_000 }
+      const stored = new Response(JSON.stringify(offers), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=600' } })
+      await cache?.put(cacheKey, stored).catch(() => undefined)
+      return offers
+    } catch {
+      if (cpaleadFeedMemory?.publisherId === publisherId && cpaleadFeedMemory.staleUntil > Date.now()) return cpaleadFeedMemory.offers
+      return []
+    } finally {
+      clearTimeout(timeout)
+    }
+  })().finally(() => { cpaleadFeedRequest = undefined })
+  return cpaleadFeedRequest
+}
+
+async function eligibleSponsorOffers(c: AppContext): Promise<SponsorOffer[]> {
+  if (!c.env.CPALEAD_PUBLISHER_ID || !c.env.CPALEAD_POSTBACK_PASSWORD) return []
+  const cf = (c.req.raw as Request & { cf?: { country?: string } }).cf
+  const country = cf?.country ?? ''
+  const device = detectSponsorDevice(c.req.header('user-agent') ?? '', c.req.header('sec-ch-ua-mobile'))
+  const offers = await cpaleadOffers(c.env)
+  return filterSponsorOffers(offers, country, device)
+}
+
+function serializedQuest(row: { id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }, offers: SponsorOffer[] = []) {
+  const definition = QUESTS.find((item) => item.type === row.type)
+  return { id: row.id, type: row.type, title: definition?.title ?? row.type, description: definition?.description,
+    period: row.period, target: row.target, progress: row.progress, reward: row.reward,
+    completed: row.completed, claimed: row.claimed, ...(row.type === 'sponsor_app' ? { sponsorOffers: offers } : {}) }
+}
 
 function sqlFor(env: Env) {
   if (!env.DATABASE_URL) throw new Error('DATABASE_UNAVAILABLE')
@@ -191,14 +261,17 @@ app.get('/api/bootstrap', async (c) => {
       INSERT INTO quests(id,user_id,cycle_type,cycle_id,quest_type,target,reward)
       SELECT id,user_id,cycle_type,cycle_id,quest_type,target,reward
       FROM jsonb_to_recordset(${JSON.stringify(questRows)}::jsonb) AS x(id text,user_id uuid,cycle_type text,cycle_id text,quest_type text,target integer,reward integer)
-      ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO NOTHING
+      ON CONFLICT(user_id,cycle_type,cycle_id,quest_type) DO UPDATE
+        SET reward=EXCLUDED.reward,updated_at=now()
+        WHERE quests.claimed=false AND quests.reward IS DISTINCT FROM EXCLUDED.reward
       RETURNING id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed
     ) SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.reward_email_verified_at,u.gift_choice,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
         'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
         ORDER BY q.cycle_type,q.quest_type)
         FROM (SELECT id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed FROM quests
-          WHERE user_id=u.id AND ((cycle_type='daily' AND cycle_id=${dailyId}) OR (cycle_type='weekly' AND cycle_id=${weeklyId}))
+          WHERE user_id=u.id AND quest_type<>'cpa_1' AND ((cycle_type='daily' AND cycle_id=${dailyId}) OR (cycle_type='weekly' AND cycle_id=${weeklyId}))
+            AND NOT EXISTS(SELECT 1 FROM seeded_quests seeded WHERE seeded.id=quests.id)
           UNION ALL
           SELECT id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed FROM seeded_quests) q),'[]'::jsonb) AS quests
     ,COALESCE((SELECT jsonb_object_agg(stock.reward_type,stock.available)
@@ -209,6 +282,7 @@ app.get('/api/bootstrap', async (c) => {
   const user = snapshot
   if (!user) return c.json({ error: 'Session user unavailable', code: 'SESSION_INVALID' }, 401)
   const quests = snapshot.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
+  const sponsorOffers = await eligibleSponsorOffers(c)
   const activeCycle = biweeklyId(now)
   const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
   const [leaderboardSnapshot] = await sql`WITH ranked AS (
@@ -235,7 +309,7 @@ app.get('/api/bootstrap', async (c) => {
     success: true,
     csrfToken,
     me: { user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, rewardEmailVerified: Boolean(user.reward_email_verified_at), giftChoice: user.gift_choice },
-    quests: quests.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })),
+    quests: quests.filter((row) => row.type !== 'cpa_1').map((row) => serializedQuest(row, sponsorOffers)),
     leaderboard: { active: leaderboardSnapshot.active, closed: leaderboardSnapshot.closed, currentPlayer: leaderboardSnapshot.current_player, cycle: activeCycle },
     eligibility: { eligible: leaderboardSnapshot.user_rank !== null, rank: leaderboardSnapshot.user_rank ?? null, cycle: closedCycle, rewardEmail: user.reward_email, giftChoice: user.gift_choice, redeemed: leaderboardSnapshot.redeemed, deliveryStatus: leaderboardSnapshot.reward_delivery_status ?? null },
     referral: { referralCode: user.referral_code, referralUrl: `${c.env.PUBLIC_ORIGIN}/?ref=${encodeURIComponent(user.referral_code)}` },
@@ -518,7 +592,7 @@ app.post('/api/game/end', async (c) => {
     totalTrophies: Number(recorded.total_trophies),
     state: {
       me: { user: { id: progress.id, displayName: progress.displayName }, trophies: Number(progress.trophies), personalBest: progress.personalBest, referralCode: progress.referralCode, rewardEmail: progress.rewardEmail, rewardEmailVerified: progress.rewardEmailVerified, giftChoice: progress.giftChoice },
-      quests: stateQuests.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })),
+      quests: stateQuests.filter((row) => row.type !== 'cpa_1').map((row) => serializedQuest(row as unknown as Parameters<typeof serializedQuest>[0])),
     },
   })
 })
@@ -526,9 +600,24 @@ app.post('/api/game/end', async (c) => {
 app.get('/api/quests', async (c) => {
   if (!await requireSession(c)) return c.json({ error: 'Sign in required', code: 'UNAUTHENTICATED' }, 401)
   const now = new Date()
-  const rows = await sqlFor(c.env)`SELECT id,quest_type AS type,cycle_type AS period,target,progress,reward,completed,claimed FROM quests
-    WHERE user_id=${c.get('userId')} AND ((cycle_type='daily' AND cycle_id=${dayId(now)}) OR (cycle_type='weekly' AND cycle_id=${weekId(now)})) ORDER BY cycle_type,quest_type`
-  return c.json(rows.map((row) => ({ id: row.id, title: QUESTS.find((item) => item.type === row.type)?.title ?? row.type, description: QUESTS.find((item) => item.type === row.type)?.description, period: row.period, target: row.target, progress: row.progress, reward: row.reward, completed: row.completed, claimed: row.claimed })))
+  const [rows, offers] = await Promise.all([
+    sqlFor(c.env)`WITH reward_updates AS (
+      UPDATE quests SET reward=CASE WHEN cycle_type='daily' AND quest_type='sponsor_app' THEN 60000
+        WHEN cycle_type='weekly' AND quest_type='ppi_3' THEN 200000 ELSE reward END,updated_at=now()
+      WHERE user_id=${c.get('userId')} AND claimed=false
+        AND ((cycle_type='daily' AND cycle_id=${dayId(now)} AND quest_type='sponsor_app')
+          OR (cycle_type='weekly' AND cycle_id=${weekId(now)} AND quest_type='ppi_3'))
+        AND reward IS DISTINCT FROM CASE WHEN cycle_type='daily' AND quest_type='sponsor_app' THEN 60000 ELSE 200000 END
+      RETURNING id,quest_type AS type,cycle_type AS period,target,progress,reward,completed,claimed
+    ), quest_rows AS (
+      SELECT id,quest_type AS type,cycle_type AS period,target,progress,reward,completed,claimed FROM quests
+      WHERE user_id=${c.get('userId')} AND quest_type<>'cpa_1' AND ((cycle_type='daily' AND cycle_id=${dayId(now)}) OR (cycle_type='weekly' AND cycle_id=${weekId(now)}))
+        AND id NOT IN (SELECT id FROM reward_updates)
+      UNION ALL SELECT id,type,period,target,progress,reward,completed,claimed FROM reward_updates
+    ) SELECT * FROM quest_rows ORDER BY period,type`,
+    eligibleSponsorOffers(c),
+  ])
+  return c.json(rows.map((row) => serializedQuest(row as unknown as Parameters<typeof serializedQuest>[0], offers)))
 })
 
 app.post('/api/quests/:questId/claim', async (c) => {
@@ -560,6 +649,72 @@ app.post('/api/quests/:questId/claim', async (c) => {
   if (!claim) return c.json({ error: 'Quest is not claimable or has already been claimed', code: 'QUEST_NOT_CLAIMABLE' }, 409)
   const definition = QUESTS.find((quest) => quest.type === claim.quest_type)
   return c.json({ success: true, quest: { id: claim.quest_id, title: definition?.title ?? claim.quest_type, description: definition?.description, period: claim.cycle_type, progress: claim.progress, target: claim.target, reward: claim.awarded, completed: claim.completed, claimed: claim.claimed }, trophiesAwarded: claim.awarded, totalTrophies: Number(claim.total) })
+})
+
+app.post('/api/sponsor/offers/start', async (c) => {
+  if (!await requireCsrf(c)) return c.json({ error: 'Session or CSRF token invalid', code: 'CSRF_DENIED' }, 403)
+  if (!c.env.CPALEAD_PUBLISHER_ID || !c.env.CPALEAD_POSTBACK_PASSWORD) return c.json({ error: 'Sponsor offers are not configured yet.', code: 'SPONSOR_OFFERS_DISABLED' }, 503)
+  const body = await c.req.json().catch(() => null) as { offerId?: unknown } | null
+  if (typeof body?.offerId !== 'string' || !/^\d{1,16}$/.test(body.offerId) || !SPONSOR_CAMPAIGNS[body.offerId]) return c.json({ error: 'Offer is unavailable.', code: 'SPONSOR_OFFER_UNAVAILABLE' }, 404)
+  const [feed, eligible] = await Promise.all([cpaleadOffers(c.env), eligibleSponsorOffers(c)])
+  const offer = feed.find((item) => String(item.id) === body.offerId)
+  const publicOffer = eligible.find((item) => item.id === body.offerId)
+  if (!offer || !publicOffer || typeof offer.link !== 'string') return c.json({ error: 'This sponsor offer is not available for your location or device.', code: 'SPONSOR_OFFER_UNAVAILABLE' }, 404)
+  const clickId = crypto.randomUUID()
+  const trackingUrl = appendSponsorSubid(offer.link, c.env.CPALEAD_PUBLISHER_ID, body.offerId, clickId)
+  if (!trackingUrl) return c.json({ error: 'Offer tracking could not be prepared.', code: 'SPONSOR_TRACKING_UNAVAILABLE' }, 503)
+  const country = (c.req.raw as Request & { cf?: { country?: string } }).cf?.country ?? ''
+  await sqlFor(c.env)`INSERT INTO mylead_clicks(click_id,user_id,provider_metadata)
+    VALUES(${clickId},${c.get('userId')},jsonb_build_object('provider','cpalead','campaign_id',${body.offerId},
+      'event_type',${publicOffer.type.toLowerCase()},'country',${country.toUpperCase()}))`
+  return c.json({ success: true, url: trackingUrl })
+})
+
+app.get('/webhooks/cpalead', async (c) => {
+  if (!c.env.CPALEAD_POSTBACK_PASSWORD) return c.text('Not configured', 503)
+  const address = c.req.header('CF-Connecting-IP') ?? 'unknown'
+  if (await isRateLimited(c.env.MUTATION_RATE_LIMIT, rateLimitKey(address))) return c.text('Retry later', 429)
+  const { subid = '', lead_id: leadId = '', campaign_id: campaignId = '', country_iso: country = '', password = '' } = c.req.query()
+  if (c.req.url.length > 2_048 || !(await constantTimeStringEqual(password, c.env.CPALEAD_POSTBACK_PASSWORD))) return c.text('Invalid postback', 403)
+  const normalizedCountry = country.toUpperCase()
+  if (!isValidSponsorPostbackId(subid) || !/^\d{1,20}$/.test(leadId) || !/^\d{1,16}$/.test(campaignId)
+    || !SPONSOR_CAMPAIGNS[campaignId] || !/^[A-Z]{2}$/.test(normalizedCountry)
+    || !isAllowedSponsorTarget(campaignId, normalizedCountry)) return c.text('Invalid postback', 400)
+
+  const now = new Date()
+  const dailyId = dayId(now)
+  const weeklyId = weekId(now)
+  const [result] = await sqlFor(c.env)`WITH click AS MATERIALIZED (
+      SELECT user_id,provider_metadata->>'event_type' AS event_type
+      FROM mylead_clicks
+      WHERE click_id=${subid} AND provider_metadata->>'provider'='cpalead'
+        AND provider_metadata->>'campaign_id'=${campaignId}
+        AND created_at > now()-interval '30 days'
+      LIMIT 1
+    ), conversion AS (
+      INSERT INTO provider_conversions(provider,transaction_id,user_id,event_type,status,reward_metadata)
+      SELECT 'cpalead',${leadId},click.user_id,click.event_type,'verified',
+        jsonb_build_object('campaign_id',${campaignId},'country_iso',${normalizedCountry})
+      FROM click WHERE click.event_type IN ('cpa','cpi','ppi')
+      ON CONFLICT(provider,transaction_id) DO NOTHING
+      RETURNING user_id
+    ), daily_progress AS (
+      UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
+      FROM conversion cv WHERE q.user_id=cv.user_id AND q.cycle_type='daily' AND q.cycle_id=${dailyId}
+        AND q.quest_type='sponsor_app' AND q.claimed=false AND q.progress<q.target
+      RETURNING q.id
+    ), weekly_progress AS (
+      UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
+      FROM conversion cv WHERE q.user_id=cv.user_id AND q.cycle_type='weekly' AND q.cycle_id=${weeklyId}
+        AND q.quest_type='ppi_3' AND q.claimed=false AND q.progress<q.target
+      RETURNING q.id
+    ) SELECT (SELECT user_id FROM click LIMIT 1) AS user_id,
+        EXISTS(SELECT 1 FROM conversion) AS inserted,
+        (SELECT count(*) FROM daily_progress)::integer AS daily_updated,
+        (SELECT count(*) FROM weekly_progress)::integer AS weekly_updated`
+  if (!result?.user_id) return c.text('Unknown offer attribution', 404)
+  // CPAlead may retry a valid callback; the unique provider/lead key makes retries no-ops.
+  return c.text(result.inserted ? 'OK' : 'OK duplicate', 200)
 })
 
 app.get('/api/leaderboard', async (c) => {

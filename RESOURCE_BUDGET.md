@@ -145,3 +145,9 @@ Updated: 2026-10-02
 - Admin inventory view is one bounded query over exactly 100 slots; delivery history is one query limited to 100 rows. A slot import uses one atomic encrypted insert/slot assignment plus one audit-log write. Admin session/login adds only on portal usage. No new service, Worker, database, cache, or dependency was added.
 - Static asset routing now sends `/`, `/index.html`, and `/api/*` through the existing Worker so it can serve the separate admin host and APIs. This causes a lightweight Worker invocation for the game host's root HTML request; the remaining 196 game assets retain the asset fast path. No Neon query is made for game assets.
 - Inventory and mail are disabled at production runtime until configuration; no provider calls or code inventory currently exist. Tests/builds and smoke checks do not quantify production cost or validate 10k–50k DAU capacity.
+
+## CPAlead offer feed — 2026-10-03
+
+- Sponsor offers are embedded in the existing bootstrap/quests response: 0 extra Worker invocations and 0 additional Neon reads per normal view. The Worker caches the narrow CPAlead feed for 10 minutes in its isolate and Cloudflare cache, coalesces simultaneous misses, and uses no polling. A cold cache/colo may make one CPAlead request; repeated warm views do not.
+- An offer click adds one authenticated start request and one attribution insert into the existing click table. A qualifying callback adds one provider HTTP request (CPAlead → existing Worker) and one atomic Neon statement to dedupe the lead and progress both sponsor quests. No new database, service, Worker, binding, or package was added.
+- Gameplay traffic remains unchanged: the feed is only loaded by the existing dashboard/quests response, never during ChickenDash gameplay.

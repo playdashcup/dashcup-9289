@@ -27,6 +27,7 @@ export interface EndGameResponse {
 
 export interface Quest {
   id: string
+  type?: string
   title: string
   description?: string
   period?: 'daily' | 'weekly' | string
@@ -35,6 +36,16 @@ export interface Quest {
   reward: number
   completed: boolean
   claimed: boolean
+  sponsorOffers?: SponsorOffer[]
+}
+
+export interface SponsorOffer {
+  id: string
+  title: string
+  description: string
+  action: string
+  type: 'CPA' | 'CPI' | 'PPI'
+  rank: number
 }
 
 export interface MeResponse {

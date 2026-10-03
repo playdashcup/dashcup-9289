@@ -10,6 +10,7 @@ import { rewardEmailTemplate, rewardEmailVerificationTemplate } from '../src/ema
 import { sendRewardEmail } from '../src/email/resend.ts'
 import { verifyAdminCredentials, verifyAdminPassword } from '../src/security/admin-auth.ts'
 import { renderAdminPortal } from '../src/admin/portal.ts'
+import { appendSponsorSubid, detectSponsorDevice, filterSponsorOffers, isAllowedSponsorTarget, isValidSponsorPostbackId } from '../src/sponsor-offers.ts'
 
 test('hashes both strings to fixed-size inputs before timing-safe comparison', async () => {
   const comparisons = []
@@ -101,6 +102,7 @@ test('applies the stricter mutation budget only to expensive POST routes', () =>
   assert.equal(isExpensiveMutation('POST', '/api/rewards/email'), true)
   assert.equal(isExpensiveMutation('POST', '/api/rewards/email/verify'), true)
   assert.equal(isExpensiveMutation('POST', '/api/admin/auth/login'), true)
+  assert.equal(isExpensiveMutation('POST', '/api/sponsor/offers/start'), true)
   assert.equal(isExpensiveMutation('POST', '/webhooks/resend'), true)
   assert.equal(isExpensiveMutation('GET', '/api/rewards/status'), false)
   assert.equal(isExpensiveMutation('POST', '/api/leaderboard'), false)
@@ -108,15 +110,48 @@ test('applies the stricter mutation budget only to expensive POST routes', () =>
 
 test('publishes exactly four daily and five weekly quests with the guide values', () => {
   assert.equal(QUESTS.filter((quest) => quest.period === 'daily').length, 4)
-  assert.equal(QUESTS.filter((quest) => quest.period === 'weekly').length, 5)
+  assert.equal(QUESTS.filter((quest) => quest.period === 'weekly').length, 4)
   assert.deepEqual(Object.fromEntries(QUESTS.map(({ type, target, reward }) => [type, [target, reward]])), {
-    play_1: [10, 1_000], play_5: [80, 8_000], new_pb: [1, 1_000], sponsor_app: [1, 40_000],
-    play_20: [200, 25_000], score_1000: [100, 5_000], ref_2: [2, 10_000], ppi_3: [3, 150_000], cpa_1: [1, 120_000],
+    play_1: [10, 1_000], play_5: [80, 8_000], new_pb: [1, 1_000], sponsor_app: [1, 60_000],
+    play_20: [200, 25_000], score_1000: [100, 5_000], ref_2: [2, 10_000], ppi_3: [3, 200_000],
   })
   assert.equal(QUESTS.find((quest) => quest.type === 'play_5')?.title, 'Play 80 validated games')
   assert.equal(QUESTS.find((quest) => quest.type === 'play_20')?.title, 'Play 200 validated games')
   assert.equal(QUESTS.find((quest) => quest.type === 'score_1000')?.title, 'Score 100 in ChickenDash')
   assert.equal(QUESTS.find((quest) => quest.type === 'ppi_3')?.title, 'Complete sponsor offers')
+  assert.equal(QUESTS.some((quest) => quest.type === 'cpa_1'), false)
+  assert.equal(QUESTS.find((quest) => quest.type === 'sponsor_app')?.description, 'Install the app for trophies.')
+})
+
+test('filters CPAlead offers by Cloudflare country, request device, and publisher campaign allowlist', () => {
+  const offers = [
+    { id: 5546840, title: 'iOS install', conversion: 'Install the app', device: 'ios', payout_type: 'CPI', countries: ['US'], offer_rank: 1, link: 'https://track.example/view.php?id=5546840&pub=3364343' },
+    { id: 5547007, title: 'UK Android', conversion: 'Install and open', device: 'android', payout_type: 'CPA', countries: ['GB'], offer_rank: 2 },
+    { id: 5543785, title: 'Germany desktop', conversion: 'Sign up', device: 'desktop', payout_type: 'CPI', countries: ['DE'], offer_rank: 3 },
+    { id: 1234, title: 'Not configured', conversion: 'Install', device: 'android', payout_type: 'CPI', countries: ['US'], offer_rank: 0 },
+  ]
+  assert.deepEqual(filterSponsorOffers(offers, 'US', 'ios').map((offer) => offer.id), ['5546840'])
+  assert.deepEqual(filterSponsorOffers(offers, 'US', 'android'), [])
+  assert.deepEqual(filterSponsorOffers(offers, 'GB', 'ios'), [])
+  assert.deepEqual(filterSponsorOffers(offers, 'GB', 'android').map((offer) => offer.id), ['5547007'])
+  assert.deepEqual(filterSponsorOffers(offers, 'DE', 'desktop').map((offer) => offer.id), ['5543785'])
+  assert.deepEqual(filterSponsorOffers(offers, 'IN', 'desktop'), [])
+  assert.equal(isAllowedSponsorTarget('5546903', 'SA'), true)
+  assert.equal(isAllowedSponsorTarget('5546903', 'US'), false)
+})
+
+test('detects platform hints and attaches only an opaque attribution subid to the exact feed link', () => {
+  assert.equal(detectSponsorDevice('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'), 'ios')
+  assert.equal(detectSponsorDevice('Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 Mobile'), 'android')
+  assert.equal(detectSponsorDevice('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), 'desktop')
+  const url = appendSponsorSubid('https://track.example/view.php?id=5546840&pub=3364343&_src=api&_src_sig=signature', '3364343', '5546840', 'd00dcafe-41aa-49c8-b966-9a6e79bf45ca')
+  assert.ok(url)
+  const parsed = new URL(url)
+  assert.equal(parsed.searchParams.get('_src_sig'), 'signature')
+  assert.equal(parsed.searchParams.get('subid'), 'd00dcafe-41aa-49c8-b966-9a6e79bf45ca')
+  assert.equal(appendSponsorSubid('https://track.example/view.php?id=123&pub=3364343', '3364343', '5546840', 'id'), null)
+  assert.equal(isValidSponsorPostbackId('d00dcafe-41aa-49c8-b966-9a6e79bf45ca'), true)
+  assert.equal(isValidSponsorPostbackId('not-a-uuid'), false)
 })
 
 test('generates short curated player names without exposing user-provided information', () => {

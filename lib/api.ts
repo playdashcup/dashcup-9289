@@ -68,6 +68,7 @@ export const api = {
   endGame: (payload: EndGamePayload) => request<EndGameResponse>('/api/game/end', { method: 'POST', body: JSON.stringify(payload) }),
   getQuests: () => request<Quest[]>('/api/quests'),
   claimQuest: (questId: string) => request<ClaimQuestResponse>(`/api/quests/${encodeURIComponent(questId)}/claim`, { method: 'POST', body: JSON.stringify({}) }),
+  startSponsorOffer: (offerId: string) => request<{ success: boolean; url: string }>('/api/sponsor/offers/start', { method: 'POST', body: JSON.stringify({ offerId }) }),
   getLeaderboard: () => request<LeaderboardResponse>('/api/leaderboard'),
   getEligibility: () => request<EligibilityResponse>('/api/rewards/eligibility'),
   redeemReward: (giftChoice: string) => request<{ success: boolean; status: string }>('/api/rewards/redeem', { method: 'POST', body: JSON.stringify({ giftChoice }) }),
