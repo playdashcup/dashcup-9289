@@ -10,14 +10,14 @@ const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 
 export const QUESTS = [
   { period: 'daily', type: 'play_1', target: 10, reward: 100, title: 'Play 10 validated matches', description: 'Finish 10 games that pass session and evidence checks today.' },
-  { period: 'daily', type: 'play_5', target: 50, reward: 500, title: 'Play 50 validated games', description: 'Finish 50 games that pass session and evidence checks today.' },
+  { period: 'daily', type: 'play_5', target: 80, reward: 500, title: 'Play 80 validated games', description: 'Finish 80 games that pass session and evidence checks today.' },
   { period: 'daily', type: 'new_pb', target: 1, reward: 1_000, title: 'Set a new personal best', description: 'Beat your personal best today.' },
-  { period: 'daily', type: 'sponsor_app', target: 1, reward: 20_000, title: 'Complete a sponsor offer', description: 'Complete one verified sponsor, CPI, or PPI event.' },
-  { period: 'weekly', type: 'play_20', target: 20, reward: 2_500, title: 'Play twenty validated games', description: 'Finish twenty games that pass session and evidence checks this week.' },
+  { period: 'daily', type: 'sponsor_app', target: 1, reward: 40_000, title: 'Complete a sponsor offer', description: 'Complete one verified sponsor, CPI, or PPI event.' },
+  { period: 'weekly', type: 'play_20', target: 200, reward: 2_500, title: 'Play 200 validated games', description: 'Finish 200 games that pass session and evidence checks this week.' },
   { period: 'weekly', type: 'score_1000', target: 1_000, reward: 5_000, title: 'Score 1,000 in ChickenDash', description: 'Reach a validated score of 1,000 in one ChickenDash run this week.' },
   { period: 'weekly', type: 'ref_2', target: 2, reward: 3_000, title: 'Invite two players', description: 'Two invited players must each finish a verified game.' },
-  { period: 'weekly', type: 'ppi_3', target: 3, reward: 30_000, title: 'Complete sponsor offers', description: 'Complete three verified PPI conversions.' },
-  { period: 'weekly', type: 'cpa_1', target: 1, reward: 80_000, title: 'Complete a CPA offer', description: 'Complete one verified CPA conversion.' },
+  { period: 'weekly', type: 'ppi_3', target: 3, reward: 150_000, title: 'Complete sponsor offers', description: 'Complete three verified PPI conversions.' },
+  { period: 'weekly', type: 'cpa_1', target: 1, reward: 120_000, title: 'Complete a CPA offer', description: 'Complete one verified CPA conversion.' },
 ] as const
 
 export function randomDisplayName() {
