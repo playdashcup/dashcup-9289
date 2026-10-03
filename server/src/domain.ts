@@ -3,20 +3,27 @@ export const MAX_RUN_MS = 180_000
 export const MIN_RUN_MS = 200
 export const MAX_SCORE_PER_SECOND = 12
 export const MAX_INPUTS_PER_SECOND = 16
+const DISPLAY_ADJECTIVES = ['Agile', 'Amber', 'Bright', 'Cosmic', 'Daring', 'Golden', 'Jolly', 'Lucky', 'Merry', 'Mighty', 'Nimble', 'Rapid', 'Silver', 'Snappy', 'Sunny', 'Swift', 'Turbo', 'Velvet', 'Witty', 'Zesty'] as const
+const DISPLAY_NOUNS = ['Badger', 'Bunny', 'Comet', 'Falcon', 'Fox', 'Gecko', 'Hawk', 'Koala', 'Otter', 'Panda', 'Penguin', 'Phoenix', 'Pigeon', 'Puma', 'Robin', 'Sparrow', 'Tiger', 'Turtle', 'Walrus', 'Wombat'] as const
 const CYCLE_ANCHOR = Date.parse('2026-01-05T00:00:00.000Z')
 const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 
 export const QUESTS = [
-  { period: 'daily', type: 'play_1', target: 1, reward: 100, title: 'Play one validated game', description: 'Finish one game that passes session and evidence checks today.' },
-  { period: 'daily', type: 'play_5', target: 5, reward: 500, title: 'Play five validated games', description: 'Finish five games that pass session and evidence checks today.' },
+  { period: 'daily', type: 'play_1', target: 10, reward: 100, title: 'Play 10 validated matches', description: 'Finish 10 games that pass session and evidence checks today.' },
+  { period: 'daily', type: 'play_5', target: 50, reward: 500, title: 'Play 50 validated games', description: 'Finish 50 games that pass session and evidence checks today.' },
   { period: 'daily', type: 'new_pb', target: 1, reward: 1_000, title: 'Set a new personal best', description: 'Beat your personal best today.' },
   { period: 'daily', type: 'sponsor_app', target: 1, reward: 20_000, title: 'Complete a sponsor offer', description: 'Complete one verified sponsor, CPI, or PPI event.' },
   { period: 'weekly', type: 'play_20', target: 20, reward: 2_500, title: 'Play twenty validated games', description: 'Finish twenty games that pass session and evidence checks this week.' },
-  { period: 'weekly', type: 'pb_3_days', target: 3, reward: 5_000, title: 'Set personal bests on three days', description: 'Earn a personal best on three distinct UTC days.' },
+  { period: 'weekly', type: 'score_1000', target: 1_000, reward: 5_000, title: 'Score 1,000 in ChickenDash', description: 'Reach a validated score of 1,000 in one ChickenDash run this week.' },
   { period: 'weekly', type: 'ref_2', target: 2, reward: 3_000, title: 'Invite two players', description: 'Two invited players must each finish a verified game.' },
-  { period: 'weekly', type: 'ppi_3', target: 3, reward: 30_000, title: 'Complete three PPI offers', description: 'Complete three verified PPI conversions.' },
+  { period: 'weekly', type: 'ppi_3', target: 3, reward: 30_000, title: 'Complete sponsor offers', description: 'Complete three verified PPI conversions.' },
   { period: 'weekly', type: 'cpa_1', target: 1, reward: 80_000, title: 'Complete a CPA offer', description: 'Complete one verified CPA conversion.' },
 ] as const
+
+export function randomDisplayName() {
+  const values = crypto.getRandomValues(new Uint32Array(2))
+  return `${DISPLAY_ADJECTIVES[values[0] % DISPLAY_ADJECTIVES.length]} ${DISPLAY_NOUNS[values[1] % DISPLAY_NOUNS.length]}`
+}
 
 export function dayId(now: Date) { return now.toISOString().slice(0, 10) }
 export function weekId(now: Date) {

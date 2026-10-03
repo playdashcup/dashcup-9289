@@ -3,7 +3,7 @@ import test from 'node:test'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { isExpensiveMutation, isRateLimited, rateLimitKey } from '../src/security/rate-limit.ts'
-import { biweeklyId, dayId, QUESTS, validateEvidence, weekId } from '../src/domain.ts'
+import { biweeklyId, dayId, QUESTS, randomDisplayName, validateEvidence, weekId } from '../src/domain.ts'
 import { constantTimeStringEqual } from '../src/security/timing-safe.ts'
 import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '../src/security/reward-code.ts'
 import { rewardEmailTemplate } from '../src/email/reward-template.ts'
@@ -81,9 +81,18 @@ test('publishes exactly four daily and five weekly quests with the guide values'
   assert.equal(QUESTS.filter((quest) => quest.period === 'daily').length, 4)
   assert.equal(QUESTS.filter((quest) => quest.period === 'weekly').length, 5)
   assert.deepEqual(Object.fromEntries(QUESTS.map(({ type, target, reward }) => [type, [target, reward]])), {
-    play_1: [1, 100], play_5: [5, 500], new_pb: [1, 1_000], sponsor_app: [1, 20_000],
-    play_20: [20, 2_500], pb_3_days: [3, 5_000], ref_2: [2, 3_000], ppi_3: [3, 30_000], cpa_1: [1, 80_000],
+    play_1: [10, 100], play_5: [50, 500], new_pb: [1, 1_000], sponsor_app: [1, 20_000],
+    play_20: [20, 2_500], score_1000: [1_000, 5_000], ref_2: [2, 3_000], ppi_3: [3, 30_000], cpa_1: [1, 80_000],
   })
+  assert.equal(QUESTS.find((quest) => quest.type === 'score_1000')?.title, 'Score 1,000 in ChickenDash')
+  assert.equal(QUESTS.find((quest) => quest.type === 'ppi_3')?.title, 'Complete sponsor offers')
+})
+
+test('generates short curated player names without exposing user-provided information', () => {
+  const names = Array.from({ length: 30 }, () => randomDisplayName())
+  assert.ok(names.every((name) => /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(name) && name.length <= 24 && name !== 'Runner'))
+  assert.ok(new Set(names).size > 1)
+  assert.ok(names.every((name) => !name.includes('@')))
 })
 
 test('derives daily and weekly cycles in UTC', () => {

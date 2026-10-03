@@ -60,11 +60,13 @@ export interface LeaderboardEntry {
   rank: number
   name: string
   trophies: number
+  isCurrent?: boolean
 }
 
 export interface LeaderboardResponse {
   active?: LeaderboardEntry[]
   closed?: LeaderboardEntry[]
+  currentPlayer?: LeaderboardEntry | null
   cycle?: string
 }
 
