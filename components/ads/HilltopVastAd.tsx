@@ -79,6 +79,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
   const videoRef = useRef<HTMLVideoElement>(null)
   const adContainerRef = useRef<HTMLDivElement>(null)
   const displayRef = useRef<ImaDisplayContainer | null>(null)
+  const displayInitializedRef = useRef(false)
   const managerRef = useRef<ImaManager | null>(null)
   const loaderRef = useRef<ImaLoader | null>(null)
   const managerInitializedRef = useRef(false)
@@ -88,7 +89,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
   useEffect(() => {
     if (attempt < 1 || !videoRef.current || !adContainerRef.current) return
     let disposed = false
-    let initialized = false
+    displayInitializedRef.current = false
     managerInitializedRef.current = false
     const finish = () => {
       if (disposed) return
@@ -125,9 +126,9 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
         manager.addEventListener(ima.AdEvent.Type.CONTENT_RESUME_REQUESTED, finish)
         manager.addEventListener(ima.AdEvent.Type.ALL_ADS_COMPLETED, finish)
         try {
-          if (!initialized) {
+          if (!displayInitializedRef.current) {
             display.initialize()
-            initialized = true
+            displayInitializedRef.current = true
           }
           manager.init(adContainerRef.current?.clientWidth || 640, adContainerRef.current?.clientHeight || 360, ima.ViewMode.NORMAL)
           managerInitializedRef.current = true
@@ -157,6 +158,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       loaderRef.current?.destroy()
       loaderRef.current = null
       displayRef.current = null
+      displayInitializedRef.current = false
       managerInitializedRef.current = false
     }
     // A new accepted 15-run interval mounts a new component instance.
@@ -168,7 +170,10 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
     const manager = managerRef.current
     if (!ima || !manager || !displayRef.current) return
     try {
-      displayRef.current.initialize()
+      if (!displayInitializedRef.current) {
+        displayRef.current.initialize()
+        displayInitializedRef.current = true
+      }
       if (!managerInitializedRef.current) {
         manager.init(adContainerRef.current?.clientWidth || 640, adContainerRef.current?.clientHeight || 360, ima.ViewMode.NORMAL)
         managerInitializedRef.current = true
