@@ -43,14 +43,15 @@ test('caps streamed request bodies before JSON handlers receive them', async () 
 test('verifies PBKDF2 admin password hashes without accepting malformed or weak hashes', async () => {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('dashboard-test-password'), 'PBKDF2', false, ['deriveBits'])
-  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 210_000 }, key, 256))
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100_000 }, key, 256))
   const encoded = (bytes) => Buffer.from(bytes).toString('base64')
-  const hash = `pbkdf2-sha256$210000$${encoded(salt)}$${encoded(bits)}`
+  const hash = `pbkdf2-sha256$100000$${encoded(salt)}$${encoded(bits)}`
   assert.equal(await verifyAdminPassword('dashboard-test-password', hash), true)
   assert.equal(await verifyAdminPassword('wrong-password', hash), false)
   assert.equal(await verifyAdminCredentials('dashcup-test', 'dashboard-test-password', 'dashcup-test', hash), true)
   assert.equal(await verifyAdminCredentials('intruder', 'dashboard-test-password', 'dashcup-test', hash), false)
-  assert.equal(await verifyAdminPassword('dashboard-test-password', `pbkdf2-sha256$1000$${encoded(salt)}$${encoded(bits)}`), false)
+  assert.equal(await verifyAdminPassword('dashboard-test-password', `pbkdf2-sha256$100001$${encoded(salt)}$${encoded(bits)}`), false)
+  assert.equal(await verifyAdminPassword('dashboard-test-password', `pbkdf2-sha256$99999$${encoded(salt)}$${encoded(bits)}`), false)
   assert.equal(await verifyAdminPassword('dashboard-test-password', 'plaintext-password'), false)
 })
 

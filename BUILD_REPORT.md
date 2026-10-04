@@ -211,6 +211,11 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Files changed: `components/Dashboard.tsx`, `components/Rewards/RewardPanel.tsx`, `lib/api.ts`, `lib/types.ts`, `server/src/admin/portal.ts`, `server/src/email/reward-template.ts`, `server/src/index.ts`, `server/src/security/admin-auth.ts`, `server/src/security/rate-limit.ts`, `server/tests/domain.test.mjs`, `server/wrangler.jsonc`, `server/scripts/hash-admin-password.mjs`, and migrations `0006_reward_inventory_admin.sql`, `0007_reward_email_verification.sql`.
 - Implementation commit `477148de4098ae13a6474673d80fd6ce9fcf5efc` is pushed to `origin/codex/dashcup-rebuild`; the working tree was clean at that point. Existing Pages project `dashcup-9289` deployed that commit as `ab68310e-5afb-4db1-b5b2-f458c5bb176c` with build/deploy stages successful. `www.dashcup.com` returned 200 and its loaded JavaScript contained the updated one-choice reward, verified-email, and unavailable-stock UI.
 
+## Admin sign-in correction — 2026-10-04
+
+- Root cause: the configured admin hash used 310,000 PBKDF2 rounds, exceeding Cloudflare Workers Web Crypto's 100,000-round limit. The verifier, hash script and tests have been corrected to use 100,000 rounds; production secret names for the admin username/hash are present. The previous `ADMIN_LOGIN_FAILED` response was therefore caused by a runtime crypto incompatibility, not proof of a mistyped username/password.
+- Worker tests passed 22/22, typecheck and Wrangler production dry-run passed. Deployed the existing Worker as `c45dbc75-1289-4e14-9130-745006c97e4b`, then replaced only the admin username/hash secrets; the active 100% production version is `b3d7f1e5-c56a-4d16-bfc6-c8c7076c0675`. Live sign-in returned 200; `/api/admin/session` confirmed authentication; logout returned 200 and a follow-up session request returned 401. Secret listing confirmed names only. No Pages deployment or database migration was needed.
+
 ## Quest reward adjustment and request-cost audit (2026-10-03)
 
 - Updated the existing daily/weekly quest catalog: Play 10 validated matches = 1,000 trophies; Play 80 validated games = 8,000; Play 200 validated games = 25,000; Invite two players = 10,000; score target is now 100 in ChickenDash (reward remains 5,000).

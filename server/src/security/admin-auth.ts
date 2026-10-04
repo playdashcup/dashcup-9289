@@ -1,5 +1,8 @@
-const MIN_ITERATIONS = 210_000
-const MAX_ITERATIONS = 1_000_000
+// Cloudflare Workers' Web Crypto implementation rejects PBKDF2 counts above
+// 100,000. Keep hashes exactly at the supported ceiling so sign-in works in
+// production as well as under Node's more permissive Web Crypto implementation.
+const MIN_ITERATIONS = 100_000
+const MAX_ITERATIONS = 100_000
 
 function bytesToHex(bytes: Uint8Array) {
   return [...bytes].map((value) => value.toString(16).padStart(2, '0')).join('')

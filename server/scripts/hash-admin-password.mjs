@@ -6,7 +6,8 @@ if (!password || password.length < 16 || password.length > 1024) {
   process.exit(1)
 }
 
-const iterations = 310_000
+// Cloudflare Workers Web Crypto rejects PBKDF2 counts above 100,000.
+const iterations = 100_000
 const salt = randomBytes(16)
 const derived = pbkdf2Sync(password, salt, iterations, 32, 'sha256')
 process.stdout.write(`pbkdf2-sha256$${iterations}$${salt.toString('base64')}$${derived.toString('base64')}\n`)
