@@ -16,7 +16,7 @@ const CLIENT_SIGNAL_WEIGHTS: Record<(typeof CLIENT_SIGNAL_FLAGS)[number], number
 const DISPLAY_ADJECTIVES = ['Agile', 'Amber', 'Bright', 'Cosmic', 'Daring', 'Golden', 'Jolly', 'Lucky', 'Merry', 'Mighty', 'Nimble', 'Rapid', 'Silver', 'Snappy', 'Sunny', 'Swift', 'Turbo', 'Velvet', 'Witty', 'Zesty'] as const
 const DISPLAY_NOUNS = ['Badger', 'Bunny', 'Comet', 'Falcon', 'Fox', 'Gecko', 'Hawk', 'Koala', 'Otter', 'Panda', 'Penguin', 'Phoenix', 'Pigeon', 'Puma', 'Robin', 'Sparrow', 'Tiger', 'Turtle', 'Walrus', 'Wombat'] as const
 const CYCLE_ANCHOR = Date.parse('2026-01-05T00:00:00.000Z')
-const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
+export const BIWEEKLY_CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 
 export const QUESTS = [
   { period: 'daily', type: 'play_1', target: 10, reward: 1_000, title: 'Play 10 validated matches', description: 'Finish 10 games that pass session and evidence checks today.' },
@@ -42,8 +42,22 @@ export function weekId(now: Date) {
   return monday.toISOString().slice(0, 10)
 }
 export function biweeklyId(now: Date) {
-  const index = Math.floor((now.getTime() - CYCLE_ANCHOR) / CYCLE_MS)
-  return new Date(CYCLE_ANCHOR + index * CYCLE_MS).toISOString().slice(0, 10)
+  const index = Math.floor((now.getTime() - CYCLE_ANCHOR) / BIWEEKLY_CYCLE_MS)
+  return new Date(CYCLE_ANCHOR + index * BIWEEKLY_CYCLE_MS).toISOString().slice(0, 10)
+}
+
+/** The previous cycle's Top 20 may redeem during the full following 14-day cycle. */
+export function rewardClaimWindow(cycleId: string, now: Date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cycleId)) return { open: false, opensAt: null, closesAt: null }
+  const cycleStart = Date.parse(`${cycleId}T00:00:00.000Z`)
+  if (!Number.isFinite(cycleStart) || new Date(cycleStart).toISOString().slice(0, 10) !== cycleId) return { open: false, opensAt: null, closesAt: null }
+  const opensAtMs = cycleStart + BIWEEKLY_CYCLE_MS
+  const closesAtMs = opensAtMs + BIWEEKLY_CYCLE_MS
+  return {
+    open: now.getTime() >= opensAtMs && now.getTime() < closesAtMs,
+    opensAt: new Date(opensAtMs).toISOString(),
+    closesAt: new Date(closesAtMs).toISOString(),
+  }
 }
 
 export function validateEvidence(value: { clientScore?: unknown; durationMs?: unknown; inputs?: unknown }) {

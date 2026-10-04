@@ -9,7 +9,7 @@ import { sendRewardEmail } from './email/resend'
 import { renderAdminPortal } from './admin/portal'
 import { verifyAdminCredentials } from './security/admin-auth'
 import { isExpensiveMutation, isRateLimited, rateLimitKey } from './security/rate-limit'
-import { biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, randomDisplayName, sanitizeClientSignals, validateEvidence, weekId } from './domain'
+import { BIWEEKLY_CYCLE_MS, biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, randomDisplayName, rewardClaimWindow, sanitizeClientSignals, validateEvidence, weekId } from './domain'
 import { appendSponsorSubid, detectSponsorDevice, filterSponsorOffers, isAllowedSponsorTarget, isValidSponsorPostbackId, SPONSOR_CAMPAIGNS, type CpaleadOffer, type SponsorOffer } from './sponsor-offers'
 
 interface Env {
@@ -40,7 +40,6 @@ const SESSION_COOKIE = 'dashcup_session'
 const ADMIN_SESSION_COOKIE = '__Secure-dashcup_admin'
 const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60
 const ADMIN_ORIGIN = 'https://admin.dashcup.com'
-const CYCLE_MS = 14 * 24 * 60 * 60 * 1_000
 const RUN_CLOCK_TOLERANCE_MS = 10_000
 const CPALEAD_FEED_TTL_MS = 10 * 60 * 1_000
 const CPALEAD_FEED_CACHE_KEY = 'https://dashcup-cache.invalid/cpalead/publisher-offers-v1'
@@ -248,6 +247,9 @@ app.get('/api/bootstrap', async (c) => {
 
   const dailyId = dayId(now)
   const weeklyId = weekId(now)
+  const activeCycle = biweeklyId(now)
+  const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - BIWEEKLY_CYCLE_MS).toISOString().slice(0, 10)
+  const claimWindow = rewardClaimWindow(closedCycle, now)
   const questRows = QUESTS.map((quest) => ({
     id: `${quest.period}:${quest.period === 'daily' ? dailyId : weeklyId}:${quest.type}`,
     user_id: activeSession.user_id,
@@ -265,7 +267,7 @@ app.get('/api/bootstrap', async (c) => {
         SET reward=EXCLUDED.reward,updated_at=now()
         WHERE quests.claimed=false AND quests.reward IS DISTINCT FROM EXCLUDED.reward
       RETURNING id,user_id,cycle_type,cycle_id,quest_type,target,progress,reward,completed,claimed
-    ) SELECT u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.reward_email_verified_at,u.gift_choice,
+    ) SELECT u.id,u.display_name,u.personal_best,u.referral_code,u.reward_email,u.reward_email_verified_at,u.gift_choice,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
         'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
         ORDER BY q.cycle_type,q.quest_type)
@@ -283,8 +285,6 @@ app.get('/api/bootstrap', async (c) => {
   if (!user) return c.json({ error: 'Session user unavailable', code: 'SESSION_INVALID' }, 401)
   const quests = snapshot.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
   const sponsorOffers = await eligibleSponsorOffers(c)
-  const activeCycle = biweeklyId(now)
-  const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
   const [leaderboardSnapshot] = await sql`WITH ranked AS (
       SELECT cs.cycle_id,row_number() OVER (PARTITION BY cs.cycle_id ORDER BY cs.trophies DESC,cs.user_id)::integer AS rank,
         u.display_name AS name,cs.trophies,cs.user_id,(cs.user_id=${activeSession.user_id}) AS is_current_user
@@ -308,10 +308,10 @@ app.get('/api/bootstrap', async (c) => {
   return c.json({
     success: true,
     csrfToken,
-    me: { user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, rewardEmailVerified: Boolean(user.reward_email_verified_at), giftChoice: user.gift_choice },
+    me: { user: { id: user.id, displayName: user.display_name }, trophies: Number(leaderboardSnapshot.current_player?.trophies ?? 0), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, rewardEmailVerified: Boolean(user.reward_email_verified_at), giftChoice: user.gift_choice },
     quests: quests.filter((row) => row.type !== 'cpa_1').map((row) => serializedQuest(row, sponsorOffers)),
     leaderboard: { active: leaderboardSnapshot.active, closed: leaderboardSnapshot.closed, currentPlayer: leaderboardSnapshot.current_player, cycle: activeCycle },
-    eligibility: { eligible: leaderboardSnapshot.user_rank !== null, rank: leaderboardSnapshot.user_rank ?? null, cycle: closedCycle, rewardEmail: user.reward_email, giftChoice: user.gift_choice, redeemed: leaderboardSnapshot.redeemed, deliveryStatus: leaderboardSnapshot.reward_delivery_status ?? null },
+    eligibility: { eligible: claimWindow.open && leaderboardSnapshot.user_rank !== null, rank: leaderboardSnapshot.user_rank ?? null, cycle: closedCycle, claimWindowOpen: claimWindow.open, claimWindowOpensAt: claimWindow.opensAt, claimWindowClosesAt: claimWindow.closesAt, rewardEmail: user.reward_email, giftChoice: user.gift_choice, redeemed: leaderboardSnapshot.redeemed, deliveryStatus: leaderboardSnapshot.reward_delivery_status ?? null },
     referral: { referralCode: user.referral_code, referralUrl: `${c.env.PUBLIC_ORIGIN}/?ref=${encodeURIComponent(user.referral_code)}` },
     rewardStock: snapshot.reward_stock as Record<RewardType, number>,
   })
@@ -418,7 +418,9 @@ async function logSuspiciousRun(c: AppContext, runId: string | null, reason: str
 
 app.get('/api/me', async (c) => {
   if (!await requireSession(c)) return c.json({ error: 'Sign in required', code: 'UNAUTHENTICATED' }, 401)
-  const [user] = await sqlFor(c.env)`SELECT id,display_name,trophies,personal_best,referral_code,reward_email,reward_email_verified_at,gift_choice FROM users WHERE id=${c.get('userId')}`
+  const cycleId = biweeklyId(new Date())
+  const [user] = await sqlFor(c.env)`SELECT u.id,u.display_name,COALESCE(cs.trophies,0)::integer AS trophies,u.personal_best,u.referral_code,u.reward_email,u.reward_email_verified_at,u.gift_choice
+    FROM users u LEFT JOIN cycle_scores cs ON cs.user_id=u.id AND cs.cycle_id=${cycleId} WHERE u.id=${c.get('userId')}`
   return c.json({ user: { id: user.id, displayName: user.display_name }, trophies: Number(user.trophies), personalBest: user.personal_best, referralCode: user.referral_code, rewardEmail: user.reward_email, rewardEmailVerified: Boolean(user.reward_email_verified_at), giftChoice: user.gift_choice })
 })
 
@@ -512,11 +514,10 @@ app.post('/api/game/end', async (c) => {
       FROM stored s JOIN users u ON u.id=s.user_id
     ), user_update AS (
       UPDATE users u SET
-        trophies=u.trophies+e.verified_score,
         personal_best=GREATEST(u.personal_best,e.verified_score),
         updated_at=now()
       FROM eligible e WHERE u.id=e.user_id
-      RETURNING u.id,u.display_name,u.trophies,u.personal_best,u.referral_code,u.reward_email,u.reward_email_verified_at,u.gift_choice,
+      RETURNING u.id,u.display_name,u.personal_best,u.referral_code,u.reward_email,u.reward_email_verified_at,u.gift_choice,
         e.verified_score,(e.previous_best IS NULL OR e.verified_score>e.previous_best) AS new_personal_best
     ), daily_pb AS (
       UPDATE quests q SET progress=LEAST(q.target,q.progress+1),completed=(LEAST(q.target,q.progress+1)>=q.target),updated_at=now()
@@ -532,7 +533,7 @@ app.post('/api/game/end', async (c) => {
       SELECT p.id,${biweeklyId(now)},p.verified_score FROM user_update p WHERE p.verified_score>0
       ON CONFLICT(user_id,cycle_id) DO UPDATE
         SET trophies=cycle_scores.trophies+EXCLUDED.trophies,updated_at=now()
-      RETURNING user_id
+      RETURNING user_id,trophies
     ), qualified AS (
       UPDATE referrals r SET qualified_at=now() FROM stored s
       WHERE r.referee_id=s.user_id AND r.qualified_at IS NULL RETURNING r.referrer_id
@@ -548,8 +549,8 @@ app.post('/api/game/end', async (c) => {
       UNION ALL SELECT * FROM daily_pb
       UNION ALL SELECT * FROM score_quest
       UNION ALL SELECT * FROM referral_quest
-    ) SELECT s.run_id,s.verified_score,p.trophies AS total_trophies,
-      jsonb_build_object('id',p.id,'displayName',p.display_name,'trophies',p.trophies,
+    ) SELECT s.run_id,s.verified_score,COALESCE(ca.trophies,(SELECT cs.trophies FROM cycle_scores cs WHERE cs.user_id=s.user_id AND cs.cycle_id=${biweeklyId(now)}),0) AS total_trophies,
+      jsonb_build_object('id',p.id,'displayName',p.display_name,'trophies',COALESCE(ca.trophies,(SELECT cs.trophies FROM cycle_scores cs WHERE cs.user_id=s.user_id AND cs.cycle_id=${biweeklyId(now)}),0),
         'personalBest',p.personal_best,'referralCode',p.referral_code,'rewardEmail',p.reward_email,'rewardEmailVerified',p.reward_email_verified_at IS NOT NULL,'giftChoice',p.gift_choice) AS me,
       (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',q.id,'type',q.quest_type,'period',q.cycle_type,'target',q.target,
         'progress',q.progress,'reward',q.reward,'completed',q.completed,'claimed',q.claimed)
@@ -564,7 +565,7 @@ app.post('/api/game/end', async (c) => {
       (SELECT count(*) FROM daily_pb) AS daily_pb_events,(SELECT count(*) FROM score_quest) AS score_quest_events,
       (SELECT count(*) FROM referral_quest) AS referral_events,
       (SELECT count(*) FROM cycle_award) AS leaderboard_events
-      FROM stored s JOIN user_update p ON p.id=s.user_id`
+      FROM stored s JOIN user_update p ON p.id=s.user_id LEFT JOIN cycle_award ca ON ca.user_id=s.user_id`
   if (!recorded) {
     const [prior] = safeRunId ? await sql`SELECT gs.used_at,gs.expires_at,
         (gs.run_token_hash=${tokenHash}) AS token_matches,(gs.expires_at>now()) AS not_expired,
@@ -635,17 +636,14 @@ app.post('/api/quests/:questId/claim', async (c) => {
       UPDATE quests q SET claimed=true,updated_at=now() FROM target t
       WHERE q.user_id=t.user_id AND q.cycle_type=t.cycle_type AND q.cycle_id=t.cycle_id AND q.quest_type=t.quest_type
       RETURNING q.id,q.user_id,q.cycle_id,q.cycle_type,q.quest_type,q.target,q.progress,q.reward,q.completed,q.claimed
-    ), wallet AS (
-      UPDATE users u SET trophies=u.trophies+c.reward,updated_at=now() FROM claimed c
-      WHERE u.id=c.user_id RETURNING u.id,u.trophies,c.cycle_id,c.reward
     ), score AS (
       INSERT INTO cycle_scores(user_id,cycle_id,trophies)
-      SELECT id,cycle_id,reward FROM wallet ON CONFLICT(user_id,cycle_id)
+      SELECT user_id,${biweeklyId(now)},reward FROM claimed ON CONFLICT(user_id,cycle_id)
       DO UPDATE SET trophies=cycle_scores.trophies+EXCLUDED.trophies,updated_at=now()
-      RETURNING user_id
-    ) SELECT wallet.reward AS awarded,wallet.trophies AS total,claimed.id AS quest_id,claimed.progress,
+      RETURNING user_id,trophies
+    ) SELECT claimed.reward AS awarded,score.trophies AS total,claimed.id AS quest_id,claimed.progress,
         claimed.target,claimed.completed,claimed.claimed,claimed.quest_type,claimed.cycle_type
-      FROM wallet JOIN score ON score.user_id=wallet.id CROSS JOIN claimed`
+      FROM claimed JOIN score ON score.user_id=claimed.user_id`
   if (!claim) return c.json({ error: 'Quest is not claimable or has already been claimed', code: 'QUEST_NOT_CLAIMABLE' }, 409)
   const definition = QUESTS.find((quest) => quest.type === claim.quest_type)
   return c.json({ success: true, quest: { id: claim.quest_id, title: definition?.title ?? claim.quest_type, description: definition?.description, period: claim.cycle_type, progress: claim.progress, target: claim.target, reward: claim.awarded, completed: claim.completed, claimed: claim.claimed }, trophiesAwarded: claim.awarded, totalTrophies: Number(claim.total) })
@@ -722,7 +720,7 @@ app.get('/webhooks/cpalead', async (c) => {
 app.get('/api/leaderboard', async (c) => {
   if (!await requireSession(c)) return c.json({ error: 'Sign in required', code: 'UNAUTHENTICATED' }, 401)
   const active = biweeklyId(new Date())
-  const closed = new Date(Date.parse(`${active}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
+  const closed = new Date(Date.parse(`${active}T00:00:00Z`) - BIWEEKLY_CYCLE_MS).toISOString().slice(0, 10)
   const sql = sqlFor(c.env)
   const [activeRows, closedRows] = await Promise.all([
     sql`WITH ranked AS (
@@ -740,14 +738,16 @@ app.get('/api/leaderboard', async (c) => {
 
 app.get('/api/rewards/eligibility', async (c) => {
   if (!await requireSession(c)) return c.json({ error: 'Sign in required', code: 'UNAUTHENTICATED' }, 401)
-  const active = biweeklyId(new Date())
-  const closed = new Date(Date.parse(`${active}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
+  const now = new Date()
+  const active = biweeklyId(now)
+  const closed = new Date(Date.parse(`${active}T00:00:00Z`) - BIWEEKLY_CYCLE_MS).toISOString().slice(0, 10)
+  const claimWindow = rewardClaimWindow(closed, now)
   const [row] = await sqlFor(c.env)`SELECT ranked.rank,EXISTS(SELECT 1 FROM reward_redemptions r
       WHERE r.user_id=ranked.user_id AND r.cycle_id=${closed} AND r.status <> 'cancelled') AS redeemed
     FROM (SELECT cs.user_id,row_number() OVER(ORDER BY cs.trophies DESC,cs.user_id)::integer AS rank
       FROM cycle_scores cs WHERE cs.cycle_id=${closed}
       ORDER BY cs.trophies DESC,cs.user_id LIMIT 20) ranked WHERE ranked.user_id=${c.get('userId')}`
-  return c.json({ eligible: Boolean(row), rank: row?.rank ?? null, cycle: closed, redeemed: row?.redeemed ?? false })
+  return c.json({ eligible: claimWindow.open && Boolean(row), rank: row?.rank ?? null, cycle: closed, claimWindowOpen: claimWindow.open, claimWindowOpensAt: claimWindow.opensAt, claimWindowClosesAt: claimWindow.closesAt, redeemed: row?.redeemed ?? false })
 })
 
 app.get('/api/referral/link', async (c) => {
@@ -838,7 +838,9 @@ app.post('/api/rewards/redeem', async (c) => {
   const rewardType = body.giftChoice as RewardType
   const now = new Date()
   const activeCycle = biweeklyId(now)
-  const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
+  const closedCycle = new Date(Date.parse(`${activeCycle}T00:00:00Z`) - BIWEEKLY_CYCLE_MS).toISOString().slice(0, 10)
+  const claimWindow = rewardClaimWindow(closedCycle, now)
+  if (!claimWindow.open) return c.json({ error: 'The reward claim window for that cycle has closed.', code: 'REWARD_CLAIM_WINDOW_CLOSED' }, 409)
   const sql = sqlFor(c.env)
   const priorRows = await sql`SELECT r.id,r.status,r.delivery_status,r.idempotency_key,r.delivery_attempt,r.recipient_email,r.reward_type,
       c.encrypted_code,c.iv,c.authentication_tag
@@ -950,7 +952,7 @@ app.post('/webhooks/resend', async (c) => {
 app.get('/api/rewards/status', async (c) => {
   if (!await requireSession(c)) return c.json({ error: 'Sign in required', code: 'UNAUTHENTICATED' }, 401)
   const active = biweeklyId(new Date())
-  const closed = new Date(Date.parse(`${active}T00:00:00Z`) - CYCLE_MS).toISOString().slice(0, 10)
+  const closed = new Date(Date.parse(`${active}T00:00:00Z`) - BIWEEKLY_CYCLE_MS).toISOString().slice(0, 10)
   const [row] = await sqlFor(c.env)`SELECT id,delivery_status,created_at,updated_at FROM reward_redemptions
     WHERE user_id=${c.get('userId')} AND cycle_id=${closed} ORDER BY created_at DESC LIMIT 1`
   return c.json({ status: row?.delivery_status ?? 'none', redemptionId: row?.id ?? null, updatedAt: row?.updated_at ?? null })

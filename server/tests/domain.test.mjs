@@ -3,7 +3,7 @@ import test from 'node:test'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { isExpensiveMutation, isRateLimited, rateLimitKey } from '../src/security/rate-limit.ts'
-import { biweeklyId, dayId, QUESTS, randomDisplayName, sanitizeClientSignals, validateEvidence, weekId } from '../src/domain.ts'
+import { biweeklyId, dayId, QUESTS, randomDisplayName, rewardClaimWindow, sanitizeClientSignals, validateEvidence, weekId } from '../src/domain.ts'
 import { constantTimeStringEqual } from '../src/security/timing-safe.ts'
 import { decryptRewardCode, encryptRewardCode, rewardCodeFingerprintHex } from '../src/security/reward-code.ts'
 import { rewardEmailTemplate, rewardEmailVerificationTemplate } from '../src/email/reward-template.ts'
@@ -172,6 +172,17 @@ test('derives 14-day cycles from the fixed guide anchor', () => {
   assert.equal(biweeklyId(new Date('2026-01-05T00:00:00Z')), '2026-01-05')
   assert.equal(biweeklyId(new Date('2026-01-18T23:59:59Z')), '2026-01-05')
   assert.equal(biweeklyId(new Date('2026-01-19T00:00:00Z')), '2026-01-19')
+})
+
+test('previous-cycle reward claims open after that cycle ends and expire at the end of the next 14-day cycle', () => {
+  assert.equal(rewardClaimWindow('2026-01-05', new Date('2026-01-18T23:59:59Z')).open, false)
+  const opened = rewardClaimWindow('2026-01-05', new Date('2026-01-19T00:00:00Z'))
+  assert.equal(opened.open, true)
+  assert.equal(opened.opensAt, '2026-01-19T00:00:00.000Z')
+  assert.equal(opened.closesAt, '2026-02-02T00:00:00.000Z')
+  assert.equal(rewardClaimWindow('2026-01-05', new Date('2026-02-01T23:59:59Z')).open, true)
+  assert.equal(rewardClaimWindow('2026-01-05', new Date('2026-02-02T00:00:00Z')).open, false)
+  assert.equal(rewardClaimWindow('2026-02-31', new Date('2026-02-01T00:00:00Z')).open, false)
 })
 
 test('bounds evidence and rejects scores unsupported by the recorded forward inputs', () => {

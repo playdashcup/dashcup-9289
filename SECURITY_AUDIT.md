@@ -157,3 +157,13 @@ Updated: 2026-10-02
 - The existing staging and production Workers now both have the postback secret bound. Missing and incorrect callback passwords return 403; the secret is not returned or logged by the application.
 - Fixed SQLSTATE `42P18` by explicitly typing interpolated string parameters used by the click and callback JSON metadata constructors. Staging and production offer-start checks now return 200 and store the UUID attribution without advancing quest progress.
 - Production callback route is deployed on `api.dashcup.com`; the CPAlead dashboard still needs its callback host changed from staging to production. No genuine conversion or duplicate callback test has run yet, so verified quest-progress advancement is not claimed. User claims remain guarded by completed/unclaimed server-side state and the atomic wallet update.
+
+## Cycle-scoped trophies and reward claim authorization — 2026-10-04
+
+- Reward claim rank is calculated from the immediately preceding biweekly `cycle_scores` set, with deterministic tie ordering. Redemption checks that same closed cycle and verifies the 14-day post-close window before reading or reserving inventory. Once the next cycle begins, the prior cycle is no longer eligible; retries are similarly scoped.
+- Public trophy totals are sourced from the active cycle ledger, not the legacy lifetime field. Quest claims add into the active biweekly cycle score, remain atomic/idempotent, and no client-provided rank/total participates in reward decisions.
+- Staging smoke verified 10 accepted runs and a 1,000 trophy quest claim yielded matching API and bootstrap current-cycle totals of 1,010. Production deployment is pending.
+
+### Production cycle/reward verification — 2026-10-04
+
+- Production Worker `dashcup-9289` version `66400b8d-5a72-45cd-b087-a85778663d92` is active at 100%; health returned 200. Staging validated run/quest-cycle totals and server-authoritative claim-window logic. The redeem path checks current-cycle window before querying/reserving a code. No reward code or email provider was enabled by this release.

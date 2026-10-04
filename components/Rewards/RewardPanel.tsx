@@ -34,7 +34,7 @@ export function RewardPanel({
 
   const selectedStock = gift ? rewardStock?.[gift] : undefined
   const selectedUnavailable = selectedStock === 0
-  const canRetry = deliveryStatus === 'rejected' && eligibility?.giftChoice === gift
+  const canRetry = deliveryStatus === 'rejected' && eligibility?.claimWindowOpen === true && eligibility.giftChoice === gift
   const alreadyProcessing = ['reserved', 'accepted', 'provider_unknown', 'sent'].includes(deliveryStatus ?? '')
   const save = async () => {
     setBusy(true)
@@ -85,6 +85,9 @@ export function RewardPanel({
         : deliveryStatus === 'rejected'
           ? 'Email delivery failed. You can retry the same redemption and reward.'
           : null
+  const claimWindowCloses = eligibility?.claimWindowClosesAt
+    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(eligibility.claimWindowClosesAt))
+    : null
 
   return (
     <section className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-white/[0.035] p-5 sm:p-8">
@@ -95,7 +98,12 @@ export function RewardPanel({
       <div className={`mt-6 rounded-2xl border p-5 ${eligibility?.eligible ? 'border-emerald-300/20 bg-emerald-300/[0.06]' : 'border-white/10 bg-white/[0.025]'}`}>
         <p className="text-lg font-black text-white">{eligibility?.eligible ? 'Congratulations!' : 'Not currently eligible'}</p>
         <p className="mt-1 text-sm text-zinc-400">Closed-cycle rank: <strong className="font-mono text-white">{eligibility?.rank ? `#${eligibility.rank}` : '—'}</strong></p>
-        <p className="mt-2 text-xs text-zinc-500">{eligibility?.eligible ? 'You are eligible for a reward.' : 'Top 20 are eligible for this cycle.'}</p>
+        <p className="mt-2 text-xs text-zinc-500">{eligibility?.eligible ? 'You are eligible for the previous cycle’s reward.' : 'The previous cycle’s Top 20 may claim during the reward window.'}</p>
+      </div>
+      <div className="mt-4 rounded-2xl border border-cyan-200/15 bg-cyan-200/[0.04] p-4 text-sm text-zinc-300" role="note">
+        <p>Rewards unlock when a 14-day leaderboard cycle ends. Its Top 20 can redeem during the following 14-day cycle only.</p>
+        <p className="mt-2">{claimWindowCloses ? `This claim window closes ${claimWindowCloses}.` : 'The claim window closes when the current 14-day cycle ends.'} Unclaimed rewards from older cycles expire.</p>
+        <p className="mt-2 text-xs text-zinc-400">Your trophy total is for the active cycle and resets to 0 when a new cycle starts. Previous-cycle scores are shown in the closed-cycle rankings.</p>
       </div>
       {deliveryMessage && <p className="mt-4 rounded-xl border border-cyan-200/15 bg-cyan-200/5 px-4 py-3 text-sm text-cyan-100" role="status">{deliveryMessage}</p>}
       <div className="mt-7 grid gap-5">
@@ -112,7 +120,7 @@ export function RewardPanel({
       {message && <p className="mt-4 text-sm text-cyan-200" role="status">{message}</p>}
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
         <button onClick={save} disabled={busy || !email || !gift} className="flex h-[3.25rem] flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-[15px] font-bold text-white hover:bg-white/10 disabled:opacity-40 sm:h-12 sm:px-3 sm:text-sm">Save Changes</button>
-        <button onClick={redeem} disabled={busy || !me?.rewardEmailVerified || (!eligibility?.eligible && !canRetry) || !email || !gift || alreadyProcessing || (selectedUnavailable && !canRetry) || Boolean(eligibility?.redeemed && !canRetry)} className="flex h-[3.25rem] flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 text-[15px] font-black text-zinc-950 hover:bg-cyan-200 disabled:opacity-40 sm:h-12 sm:px-3 sm:text-sm"><Send className="size-4" />{busy ? 'Processing…' : canRetry ? 'Retry Email' : eligibility?.redeemed ? 'Already redeemed' : 'Redeem Reward'}</button>
+        <button onClick={redeem} disabled={busy || !me?.rewardEmailVerified || !eligibility?.claimWindowOpen || (!eligibility?.eligible && !canRetry) || !email || !gift || alreadyProcessing || (selectedUnavailable && !canRetry) || Boolean(eligibility?.redeemed && !canRetry)} className="flex h-[3.25rem] flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 text-[15px] font-black text-zinc-950 hover:bg-cyan-200 disabled:opacity-40 sm:h-12 sm:px-3 sm:text-sm"><Send className="size-4" />{busy ? 'Processing…' : canRetry ? 'Retry Email' : eligibility?.redeemed ? 'Already redeemed' : 'Redeem Reward'}</button>
       </div>
       {selectedUnavailable && <p className="mt-3 text-sm font-bold text-amber-200">Currently unavailable — choose another reward or try later.</p>}
       <p className="mt-4 flex items-center gap-2 text-xs text-zinc-500"><CheckCircle2 className="size-3.5 text-emerald-300" /> Codes are encrypted at rest and never displayed here.</p>

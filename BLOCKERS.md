@@ -185,3 +185,13 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - The production Worker now has `CPALEAD_POSTBACK_PASSWORD` in secret storage. Staging and production offer reads/start were smoke-tested; an eligible offer appeared for an India/desktop test client and returned a `subid`. A click alone did not advance quest progress; claiming at zero progress returned 409. Missing/wrong callback passwords returned 403.
 - **Owner action for real conversions:** update the CPAlead dashboard callback from the staging `workers.dev` host to the production callback shown in `DEPLOYMENT.md`. Then complete one qualifying offer to verify the real callback and quest progression. No synthetic conversion was inserted.
 - No frontend Pages redeploy or Neon schema migration was needed for this fix. Other previously listed admin, inventory, Resend and ad-provider blockers are unchanged.
+
+## Biweekly cycle/reward-window update — 2026-10-04
+
+- Existing logic already bound redemption to the latest closed cycle, but the UI omitted its timing. This is now explicit: claim opens when a 14-day cycle ends and remains available for the following 14-day cycle only; the redeem API enforces the deadline and cannot grant an older cycle's reward.
+- Public/current trophy totals now come from the active biweekly score ledger and reset to 0 at cycle start; older cycle ranks remain historical. Fixed quest claim points to accrue in the correct biweekly ledger. No external blocker remains for this change; it passed staging but production deployment remains pending.
+
+### Production promotion — 2026-10-04
+
+- The existing Worker was promoted after staging validation; production version `66400b8d-5a72-45cd-b087-a85778663d92` is active at 100%. API health and both apex/www returned HTTP 200. No database migration or infrastructure change was needed.
+- Pages needs the source commit pushed to its existing Git-connected branch before the Rewards copy can be confirmed live. No other external blocker is identified for this cycle/reward change.

@@ -63,6 +63,9 @@ export interface EligibilityResponse {
   eligible: boolean
   rank: number | null
   cycle?: string
+  claimWindowOpen?: boolean
+  claimWindowOpensAt?: string | null
+  claimWindowClosesAt?: string | null
   rewardEmail?: string | null
   giftChoice?: string | null
   redeemed?: boolean

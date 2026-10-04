@@ -151,3 +151,8 @@ Updated: 2026-10-02
 - Sponsor offers are embedded in the existing bootstrap/quests response: 0 extra Worker invocations and 0 additional Neon reads per normal view. The Worker caches the narrow CPAlead feed for 10 minutes in its isolate and Cloudflare cache, coalesces simultaneous misses, and uses no polling. A cold cache/colo may make one CPAlead request; repeated warm views do not.
 - An offer click adds one authenticated start request and one attribution insert into the existing click table. A qualifying callback adds one provider HTTP request (CPAlead → existing Worker) and one atomic Neon statement to dedupe the lead and progress both sponsor quests. No new database, service, Worker, binding, or package was added.
 - Gameplay traffic remains unchanged: the feed is only loaded by the existing dashboard/quests response, never during ChickenDash gameplay.
+
+## Biweekly score/claim update — 2026-10-04
+
+- No API request or database round-trip was added. Bootstrap reuses its existing combined leaderboard query to supply the current-cycle trophy total and reward-window metadata. `/api/me` reads cycle score through a left join in its existing query.
+- Quest claims removed the redundant user-wallet update and atomically upsert the current biweekly score in the existing claim statement. Game completion reads the resulting cycle score from its existing statement. The 14-day window is computed in Worker code and adds no Neon query.

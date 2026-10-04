@@ -197,3 +197,14 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - The CPAlead sponsor flow is enabled on production Worker `dashcup-9289` version `fd2e3a6f-41df-47f2-b008-b982d7aff1de`; the callback password is stored as a Worker secret. Staging offer start and production offer start both returned 200; a click alone did not change quest progress, and an unearned quest claim returned 409.
 - Set the CPAlead publisher postback to this production URL (keep the CPAlead macros exactly as shown): `https://api.dashcup.com/webhooks/cpalead?subid={subid}&lead_id={lead_id}&campaign_id={campaign_id}&country_iso={country_iso}&password={password}`. The callback URL previously provided was the staging Worker URL, so live conversions would not reach the production database until this is changed.
 - Complete one real qualifying offer after updating the callback to confirm a genuine conversion advances the daily and weekly sponsor quest rows. No synthetic conversion was inserted. The `GO!` offer list is targeted: it appears only when the visitor's country and device match a currently live CPAlead campaign.
+
+## Biweekly trophy reset and reward claims — 2026-10-04
+
+- The public trophy total and active leaderboard use cycle-scoped `cycle_scores`. They reset to 0 for a player at the start of each 14-day cycle; closed-cycle rankings preserve prior scores. The old `users.trophies` lifetime accumulator is no longer used in API output and is no longer updated by new game/quest events.
+- The previous cycle's Top 20 can claim once that cycle ends, during the next full 14-day cycle. The server exposes `claimWindowOpensAt` / `claimWindowClosesAt` and checks the active window and the immediately previous cycle on redemption. At the next cycle boundary, older-cycle winners and unclaimed codes are no longer eligible.
+- Staging version `703363c1-d2f3-4a02-a558-ff1cf46157e1` passed 23/23 Worker tests, typecheck/lint/build and Wrangler dry-runs; staging end-to-end validated ten game completions, the 1,000-trophy quest claim, and consistent 1,010 current-cycle totals. Production deployment is still pending.
+
+### Production promotion — 2026-10-04
+
+- After the staging end-to-end check passed, deployed to the existing production Worker `dashcup-9289`, active version `66400b8d-5a72-45cd-b087-a85778663d92` (100%). Production API health, apex, and www returned HTTP 200 after deployment. No Neon migration or Pages project replacement was done.
+- The Rewards interface copy is published via the existing Pages project's Git-connected production branch; verify its deployment after pushing this implementation.

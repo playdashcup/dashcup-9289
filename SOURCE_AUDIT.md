@@ -141,3 +141,8 @@ Audit date: 2026-10-02
 - Targeting comes from the Cloudflare country signal plus server-derived platform hints, intersected with the owner’s GEO/device allowlist. The application returns offer text/type but not tracking URLs. The Worker preserves CPAlead’s live signed URL and appends only an opaque `subid` after verifying campaign and publisher query values.
 - CPAlead currently reports varying campaign types/actions and link hosts compared with the manually pasted description. UI labels follow the live API response; country/device limits remain the stricter owner-provided ones. Campaigns not in the allowlist do not pass through.
 - The callback must be configured with a separate secret `CPALEAD_POSTBACK_PASSWORD`; the API key is not a postback password. The route rejects unauthenticated/unknown/mismatched events and atomically deduplicates by CPAlead `lead_id`. This code has not been deployed or credential-tested.
+
+## Biweekly trophy and reward-cycle source audit — 2026-10-04
+
+- `server/src/domain.ts` defines the shared 14-day cycle length and claim window. `server/src/index.ts` calculates closed-cycle Top-20 eligibility, includes open/deadline timestamps, enforces the window before reward redemption, and scopes score output to the active cycle. Quest rewards now increment the same biweekly score ledger as game scores.
+- `components/Rewards/RewardPanel.tsx` communicates cycle-end unlock, the following 14-day redemption window, expiry of old unclaimed rewards, and current-cycle trophy reset. The active public total derives from the current leaderboard cycle; historical cycle scores remain retained.
