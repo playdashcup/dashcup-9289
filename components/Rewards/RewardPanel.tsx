@@ -107,7 +107,7 @@ export function RewardPanel({
           {gifts.map(([value, label]) => {
             const available = rewardStock?.[value]
             return <button type="button" key={value} onClick={() => setGift(value)} aria-pressed={gift === value} className={`rounded-xl border px-3 py-3 text-xs font-bold transition ${gift === value ? 'border-cyan-300 bg-cyan-300/10 text-cyan-200' : 'border-white/10 bg-black/20 text-zinc-400 hover:text-white'}`}>
-              {label}<span className="mt-1 block text-[10px] font-medium opacity-75">{available === undefined ? 'Stock status loading' : available > 0 ? `${available} available` : 'Currently unavailable'}</span>
+              {label}{available !== undefined && available > 0 && <span className="mt-1 block text-[10px] font-medium opacity-75">{available} available</span>}
             </button>
           })}
         </div></fieldset>
@@ -117,7 +117,6 @@ export function RewardPanel({
         <button onClick={save} disabled={busy || !email || !gift} className="flex h-[3.25rem] flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-[15px] font-bold text-white hover:bg-white/10 disabled:opacity-40 sm:h-12 sm:px-3 sm:text-sm">Save Changes</button>
         <button onClick={redeem} disabled={busy || !me?.rewardEmailVerified || !eligibility?.claimWindowOpen || (!eligibility?.eligible && !canRetry) || !email || !gift || alreadyProcessing || (selectedUnavailable && !canRetry) || Boolean(eligibility?.redeemed && !canRetry)} className="flex h-[3.25rem] flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 text-[15px] font-black text-zinc-950 hover:bg-cyan-200 disabled:opacity-40 sm:h-12 sm:px-3 sm:text-sm"><Send className="size-4" />{busy ? 'Processing…' : canRetry ? 'Retry Email' : eligibility?.redeemed ? 'Already redeemed' : 'Redeem Reward'}</button>
       </div>
-      {selectedUnavailable && <p className="mt-3 text-sm font-bold text-amber-200">Currently unavailable — choose another reward or try later.</p>}
       <p className="mt-4 flex items-center gap-2 text-xs text-zinc-500"><CheckCircle2 className="size-3.5 text-emerald-300" /> Codes are encrypted at rest and never displayed here.</p>
     </section>
   )

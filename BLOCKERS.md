@@ -199,3 +199,8 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 
 - The existing Worker was promoted after staging validation; production version `66400b8d-5a72-45cd-b087-a85778663d92` is active at 100%. API health and both apex/www returned HTTP 200. No database migration or infrastructure change was needed.
 - The existing Pages project is live on deployment `46478491-668f-4cb3-989b-409c45ee2d57` for commit `8b7470e`; the published JS contains the Rewards copy and apex/www return 200. No external blocker remains for this cycle/reward change.
+
+## Ad and UI follow-up — 2026-10-04
+
+- Removed the Hilltop banner and Monetag service-worker ad loaders after reports that ad behavior was opening during dashboard navigation. The 10-accepted-run VAST player remains user-gesture gated.
+- The supplied VAST tag returned VAST 3.0 creatives at check time, but browser-level playback after publishing still needs verification. Provider fill varies by browser, device, geography, and inventory.

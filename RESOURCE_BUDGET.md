@@ -161,3 +161,8 @@ Updated: 2026-10-02
 
 - River log spawning is local game logic only. No API endpoint, Worker request, Neon query, or write was added.
 - Hilltop push and page-level video-slider loaders were removed because they could intercept app navigation. The existing inline banner loads only inside its Arcade placement. The existing VAST flow still requests an ad once per 10 server-accepted runs; tapping Play ad starts the already-requested creative and adds no app API/database call.
+
+## Ad and game UI follow-up — 2026-10-04
+
+- Removed the Hilltop banner loader and Monetag external service-worker import, reducing third-party browser loads and avoiding navigation-level ad handlers. The existing VAST overlay remains one provider request per 10 accepted runs; no per-frame or game API traffic was added.
+- Increased mobile game viewport height via CSS aspect ratio only. No Worker invocation, Neon read/write, or API endpoint was added.

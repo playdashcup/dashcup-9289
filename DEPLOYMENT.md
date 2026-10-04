@@ -208,3 +208,8 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 
 - After the staging end-to-end check passed, deployed to the existing production Worker `dashcup-9289`, active version `66400b8d-5a72-45cd-b087-a85778663d92` (100%). Production API health, apex, and www returned HTTP 200 after deployment. No Neon migration or Pages project replacement was done.
 - The Rewards copy is live through existing Pages deployment `46478491-668f-4cb3-989b-409c45ee2d57` for commit `8b7470e` (Active). Apex/www returned 200 and the published JS contains the updated text. Production bootstrap returned 200 with cycle `2026-09-28`, current-cycle trophies `0` for a new session, and deadline `2026-10-12T00:00:00Z`.
+
+## Ad and mobile UI follow-up — 2026-10-04
+
+- Source changes remove the Hilltop banner mount and Monetag service-worker import while retaining the existing VAST video flow. Publish through the existing `dashcup-9289` Pages project after pushing the frontend commit; no Worker deployment is needed for these frontend-only changes.
+- VAST URL fetch returned HTTP 200 with VAST 3.0 video creatives. Validate browser playback after publication; the player requires a user tap and provider inventory varies.

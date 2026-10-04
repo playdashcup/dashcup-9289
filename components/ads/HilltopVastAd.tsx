@@ -83,16 +83,22 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
   const managerRef = useRef<ImaManager | null>(null)
   const loaderRef = useRef<ImaLoader | null>(null)
   const managerInitializedRef = useRef(false)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'playing' | 'error'>('loading')
+  const [status, setStatus] = useState<'loading' | 'ready' | 'starting' | 'playing' | 'error'>('loading')
   const [muted, setMuted] = useState(true)
+  const timeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (attempt < 1 || !videoRef.current || !adContainerRef.current) return
     let disposed = false
     displayInitializedRef.current = false
     managerInitializedRef.current = false
+    const clearTimeouts = () => {
+      if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
     const finish = () => {
       if (disposed) return
+      clearTimeouts()
       managerRef.current?.destroy()
       managerRef.current = null
       loaderRef.current?.destroy()
@@ -100,6 +106,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       onClose()
     }
     const reportAdError = () => {
+      clearTimeouts()
       managerRef.current?.destroy()
       managerRef.current = null
       loaderRef.current?.destroy()
@@ -107,6 +114,8 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       if (!disposed) setStatus('error')
     }
 
+    // Do not leave a blank loading overlay indefinitely if the SDK or VAST provider stalls.
+    timeoutRef.current = window.setTimeout(reportAdError, 20_000)
     void loadImaSdk().then((ima) => {
       if (disposed || !videoRef.current || !adContainerRef.current) return
       const display = new ima.AdDisplayContainer(adContainerRef.current, videoRef.current)
@@ -116,10 +125,12 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       loader.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, reportAdError)
       loader.addEventListener(ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED, (event) => {
         if (disposed || !videoRef.current) return
+        clearTimeouts()
         const manager = event.getAdsManager(videoRef.current, new ima.AdsRenderingSettings())
         managerRef.current = manager
         manager.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, reportAdError)
         manager.addEventListener(ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED, () => {
+          clearTimeouts()
           if (videoRef.current) videoRef.current.pause()
           if (!disposed) setStatus('playing')
         })
@@ -149,6 +160,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       displayRef.current = null
       displayInitializedRef.current = false
       managerInitializedRef.current = false
+      clearTimeouts()
     }
     // A new accepted 10-run interval mounts a new component instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,9 +180,20 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
         managerInitializedRef.current = true
       }
       manager.setVolume?.(muted ? 0 : 1)
+      setStatus('starting')
+      timeoutRef.current = window.setTimeout(() => {
+        managerRef.current?.destroy()
+        managerRef.current = null
+        loaderRef.current?.destroy()
+        loaderRef.current = null
+        setStatus('error')
+      }, 12_000)
       manager.start()
-      setStatus('playing')
-    } catch { setStatus('error') }
+    } catch {
+      if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+      setStatus('error')
+    }
   }
 
   const toggleSound = () => {
@@ -184,16 +207,16 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       <video ref={videoRef} className="absolute inset-0 size-full bg-black object-contain" playsInline muted />
       <div ref={adContainerRef} className="absolute inset-0" />
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between bg-gradient-to-b from-black/75 to-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/80">
-        <span>{status === 'loading' ? 'Loading sponsor ad…' : status === 'playing' ? 'Sponsor message' : status === 'ready' ? 'Sponsor break ready' : 'Ad unavailable'}</span>
+        <span>{status === 'loading' ? 'Loading sponsor ad…' : status === 'starting' ? 'Starting sponsor ad…' : status === 'playing' ? 'Sponsor message' : status === 'ready' ? 'Sponsor break ready' : 'Ad unavailable'}</span>
         {status === 'playing' && <button type="button" onClick={toggleSound} className="pointer-events-auto rounded-lg bg-black/60 px-2 py-1 normal-case tracking-normal text-white">{muted ? 'Enable sound' : 'Mute'}</button>}
       </div>
-      {(status === 'loading' || status === 'ready' || status === 'error') && <div className="absolute inset-0 z-20 grid place-items-center bg-[#101633]/75 p-5 text-center backdrop-blur-sm">
+      {(status === 'loading' || status === 'ready' || status === 'starting' || status === 'error') && <div className="absolute inset-0 z-20 grid place-items-center bg-[#101633]/75 p-5 text-center backdrop-blur-sm">
         <div className="max-w-sm">
-          <p className="mb-2 text-lg font-black text-white">{status === 'loading' ? 'A quick sponsor break' : status === 'ready' ? 'Ready when you are' : 'No video ad available'}</p>
-          <p className="mb-4 text-sm text-indigo-100/80">{status === 'loading' ? 'Loading the Hilltop VAST video.' : status === 'ready' ? 'Tap to start the video ad.' : 'You can keep playing DASHCUP.'}</p>
+          <p className="mb-2 text-lg font-black text-white">{status === 'loading' || status === 'starting' ? 'A quick sponsor break' : status === 'ready' ? 'Ready when you are' : 'No video ad available'}</p>
+          <p className="mb-4 text-sm text-indigo-100/80">{status === 'loading' ? 'Loading the Hilltop VAST video.' : status === 'starting' ? 'Starting video playback…' : status === 'ready' ? 'Tap to start the video ad.' : 'You can keep playing DASHCUP.'}</p>
           <div className="flex justify-center gap-3">
             {status === 'ready' && <button type="button" onClick={startFromGesture} className="rounded-xl border-2 border-[#13213d] bg-gradient-to-b from-[#8af4ff] to-[#5ad8ef] px-5 py-2.5 font-black text-[#15203e] shadow-[0_4px_0_#328aa2]">Play ad</button>}
-            {(status === 'error' || status === 'ready') && <button type="button" onClick={onClose} className="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 font-bold text-white">Continue</button>}
+            {(status === 'error' || status === 'ready' || status === 'starting') && <button type="button" onClick={onClose} className="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 font-bold text-white">Continue</button>}
           </div>
         </div>
       </div>}

@@ -167,3 +167,7 @@ Updated: 2026-10-02
 ### Production cycle/reward verification — 2026-10-04
 
 - Production Worker `dashcup-9289` version `66400b8d-5a72-45cd-b087-a85778663d92` is active at 100%; health returned 200. Staging validated run/quest-cycle totals and server-authoritative claim-window logic. The redeem path checks current-cycle window before querying/reserving a code. No reward code or email provider was enabled by this release.
+
+## Third-party ad script reduction — 2026-10-04
+
+- Removed the page-mounted Hilltop banner script and third-party Monetag service-worker import after reports that ads were opening during dashboard navigation. The separate Hilltop VAST player remains user-gesture gated and grants no rewards.

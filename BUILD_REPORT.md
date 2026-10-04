@@ -266,3 +266,10 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Changed the existing Hilltop VAST player to wait for an explicit Play ad tap before initializing playback. A direct fetch of the supplied tag returned VAST XML containing inline video creatives at check time; live playback can still vary by device, geography, browser settings, and provider inventory.
 - Validation: frontend lint/build passed; Expo web export passed; Expo lint had 0 errors and 68 existing warnings. Staging Worker `dashcup-9289-staging`, version `a03d4e3a-0487-47a3-98ac-5d8043b4c2be`, returned 200 for `/api/health`, `/`, `/index.html`, and the new hashed Expo bundle. Staging and production Wrangler dry-runs passed.
 - Existing Pages project preview: https://codex-spawn-adfix.dashcup-9289.pages.dev. Browser navigation from Arcade to Quests stayed on the app. Preview bootstrap failed because the preview origin is outside the staging Worker CORS allowlist; this was not a staging or production browser E2E pass.
+
+## Ad, reward-stock, and mobile game polish — 2026-10-04
+
+- Removed the Hilltop banner script placement and the Monetag third-party service-worker import. The intentional Hilltop VAST overlay remains triggered after each 10 accepted runs.
+- The VAST endpoint returned HTTP 200 with VAST 3.0 inline MP4/WebM media entries during this check. Updated the player to show “starting” until IMA reports playback and to exit to a clear error state if SDK/provider/video start stalls. Browser playback itself has not been verified.
+- Mobile ChickenDash frame now uses a taller 3:4 portrait aspect ratio; desktop remains 4:3. Reward options no longer display “Currently unavailable” for zero-stock categories; the existing server/stock-based redemption guard remains.
+- Frontend lint and production build passed. No Worker API calls or Neon queries were added.

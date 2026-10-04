@@ -146,3 +146,9 @@ Audit date: 2026-10-02
 
 - `server/src/domain.ts` defines the shared 14-day cycle length and claim window. `server/src/index.ts` calculates closed-cycle Top-20 eligibility, includes open/deadline timestamps, enforces the window before reward redemption, and scopes score output to the active cycle. Quest rewards now increment the same biweekly score ledger as game scores.
 - `components/Rewards/RewardPanel.tsx` communicates cycle-end unlock, the following 14-day redemption window, expiry of old unclaimed rewards, and current-cycle trophy reset. The active public total derives from the current leaderboard cycle; historical cycle scores remain retained.
+
+## Ad-loader follow-up — 2026-10-04
+
+- Removed the Arcade Hilltop banner mount and its third-party loader. The Hilltop VAST player remains mounted only after each 10th server-accepted run.
+- Removed the externally hosted Monetag service-worker import/configuration from `public/sw.js`; the local PWA offline cache remains, with a cache-version bump.
+- ChickenDash mobile presentation uses a portrait game frame while desktop remains 4:3. The Rewards panel hides zero-stock “Currently unavailable” copy but still blocks redemption when inventory is zero.
