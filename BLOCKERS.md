@@ -203,4 +203,4 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 ## Ad and UI follow-up — 2026-10-04
 
 - Removed the Hilltop banner and Monetag service-worker ad loaders after reports that ad behavior was opening during dashboard navigation. The 10-accepted-run VAST player remains user-gesture gated.
-- The supplied VAST tag returned VAST 3.0 creatives at check time, but browser-level playback after publishing still needs verification. Provider fill varies by browser, device, geography, and inventory.
+- Published Pages deployment `7d8f0981-58da-408d-9ad3-587d96867a45`; live browser navigation to Quests stayed in the app without opening a new tab. The supplied VAST tag returned VAST 3.0 creatives, but browser-level video playback still needs verification. Provider fill varies by browser, device, geography, and inventory.

@@ -211,5 +211,5 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 
 ## Ad and mobile UI follow-up — 2026-10-04
 
-- Source changes remove the Hilltop banner mount and Monetag service-worker import while retaining the existing VAST video flow. Publish through the existing `dashcup-9289` Pages project after pushing the frontend commit; no Worker deployment is needed for these frontend-only changes.
-- VAST URL fetch returned HTTP 200 with VAST 3.0 video creatives. Validate browser playback after publication; the player requires a user tap and provider inventory varies.
+- Commit `9be94334179ed201295adcdea6afcc0bb2abeb51` was pushed to the existing `codex/dashcup-rebuild` production branch. Cloudflare Pages deployment `7d8f0981-58da-408d-9ad3-587d96867a45` succeeded for project `dashcup-9289`; apex and www point to that deployment. No Worker deployment was needed.
+- Live assets no longer include the Hilltop banner loader or Monetag service-worker import. In-browser navigation to Quests stayed in the application without opening a new tab. The VAST URL returned HTTP 200 with VAST 3.0 video creatives; actual browser playback remains unverified and requires the user to tap Play ad.
