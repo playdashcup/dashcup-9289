@@ -91,11 +91,6 @@ export function RewardPanel({
         <div><p className="font-mono text-xs uppercase tracking-[.18em] text-cyan-300">Reward center</p><h2 className="mt-1 text-2xl font-black text-white">Your place in the run</h2></div>
         <div className="grid size-11 place-items-center rounded-xl bg-yellow-300/10 text-yellow-200"><Gift /></div>
       </div>
-      <div className={`mt-6 rounded-2xl border p-5 ${eligibility?.eligible ? 'border-emerald-300/20 bg-emerald-300/[0.06]' : 'border-white/10 bg-white/[0.025]'}`}>
-        <p className="text-lg font-black text-white">{eligibility?.eligible ? 'Congratulations!' : 'Not currently eligible'}</p>
-        <p className="mt-1 text-sm text-zinc-400">Closed-cycle rank: <strong className="font-mono text-white">{eligibility?.rank ? `#${eligibility.rank}` : '—'}</strong></p>
-        <p className="mt-2 text-xs text-zinc-500">{eligibility?.eligible ? 'You are eligible for the previous cycle’s reward.' : 'The previous cycle’s Top 20 may claim during the reward window.'}</p>
-      </div>
       <div className="mt-4 rounded-2xl border border-cyan-200/15 bg-cyan-200/[0.04] p-4 text-sm text-zinc-300" role="note">
         <p>Rewards unlock when a 14-day leaderboard cycle ends. Its Top 20 can redeem during the following 14-day cycle only.</p>
         <p className="mt-2 text-xs text-zinc-400">Your trophy total is for the active cycle and resets to 0 when a new cycle starts. Previous-cycle scores are shown in the closed-cycle rankings.</p>

@@ -11,6 +11,7 @@ import { RewardPanel } from '@/components/Rewards/RewardPanel'
 import { ReferralPanel } from '@/components/Referrals/ReferralPanel'
 import { ServiceWorker } from '@/components/ServiceWorker'
 import { AntiCheatTelemetry } from '@/components/Security/AntiCheatTelemetry'
+import { HilltopArcadeAd } from '@/components/ads/HilltopBanner'
 import { Trophy, Gamepad2, Target, Crown, Gift, Zap } from 'lucide-react'
 
 const sections = [
@@ -131,6 +132,9 @@ export function Dashboard() {
         {booting ? <div className="grid min-h-[440px] place-items-center rounded-3xl border border-white/10 bg-white/[0.025]"><div className="text-center"><div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-cyan-300/20 border-t-cyan-300" /><p className="font-mono text-xs uppercase tracking-widest text-zinc-500">Syncing DASHCUP</p></div></div> : <>
           {active === 'arcade' && <>
             <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[1.35fr_.65fr]"><GameBridge onComplete={onGameComplete} /><ReferralPanel referralUrl={referral?.referralUrl ?? null} onViewQuests={() => setActive('quests')} /></div>
+            <div className="mt-5">
+              <HilltopArcadeAd />
+            </div>
           </>}
           {active === 'quests' && <QuestBoard quests={quests} onClaimed={onQuestClaimed} />}
           {active === 'leaderboard' && <Leaderboard data={leaderboard} onRetry={async () => setLeaderboard(await api.getLeaderboard())} />}

@@ -8,7 +8,7 @@ import { HilltopVastAd } from '@/components/ads/HilltopVastAd'
 import { Gamepad2, Play, RotateCcw } from 'lucide-react'
 
 const GAME_ORIGIN = process.env.NEXT_PUBLIC_GAME_ORIGIN || (process.env.NODE_ENV === 'development' ? 'http://localhost:8787' : 'https://game.dashcup.com')
-const ACCEPTED_RUNS_STORAGE_KEY = 'dashcup.hilltop-vast.accepted-runs.v1'
+const COMPLETED_RUNS_STORAGE_KEY = 'dashcup.hilltop-vast.completed-runs.v1'
 const CLIENT_SIGNAL_WEIGHTS: Record<string, number> = {
   input_burst: 24, score_velocity: 28, short_run_high_score: 24, movement_jump: 30,
   invalid_state_transition: 20, state_integrity: 30, focus_change: 2,
@@ -49,23 +49,23 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ score: number; trophies: number } | null>(null)
   const [vastAdAttempt, setVastAdAttempt] = useState<number | null>(null)
-  const acceptedRunsRef = useRef(0)
+  const completedRunsRef = useRef(0)
   const runStartTimesRef = useRef<number[]>([])
   const pendingRunSignalsRef = useRef<Set<string>>(new Set())
   const runSignalsRef = useRef<Set<string>>(new Set())
 
-  const recordAcceptedRun = () => {
+  const recordCompletedRun = () => {
     let storedCount = 0
     try {
-      const stored = localStorage.getItem(ACCEPTED_RUNS_STORAGE_KEY)
+      const stored = localStorage.getItem(COMPLETED_RUNS_STORAGE_KEY)
       if (stored && /^\d+$/.test(stored)) {
         const parsed = Number(stored)
         if (Number.isSafeInteger(parsed)) storedCount = parsed
       }
     } catch { /* Storage can be unavailable in private browsing; use this page session. */ }
-    const nextCount = Math.max(storedCount, acceptedRunsRef.current) + 1
-    acceptedRunsRef.current = nextCount
-    try { localStorage.setItem(ACCEPTED_RUNS_STORAGE_KEY, String(nextCount)) } catch { /* The frequency counter is a non-authoritative ad preference. */ }
+    const nextCount = Math.max(storedCount, completedRunsRef.current) + 1
+    completedRunsRef.current = nextCount
+    try { localStorage.setItem(COMPLETED_RUNS_STORAGE_KEY, String(nextCount)) } catch { /* The frequency counter is a non-authoritative ad preference. */ }
     if (nextCount % 10 === 0) setVastAdAttempt(nextCount)
   }
 
@@ -108,6 +108,9 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
       }
       if (event.data.type === 'dashcup:run_finished' && activeRun && event.data.runId === activeRun.runId && finishingRunRef.current !== activeRun.runId) {
         finishingRunRef.current = activeRun.runId
+        // Ad pacing follows completed gameplay, even if the network is offline
+        // or server evidence checks reject the score. It never grants rewards.
+        recordCompletedRun()
         setState('finishing')
         try {
           // Read the ref only after all earlier postMessage input events have been processed.
@@ -115,9 +118,6 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
           runRef.current = null
           setResult({ score: result.score ?? 0, trophies: result.trophiesEarned })
           setState('complete')
-          // Only successful server end responses count. This browser-local counter
-          // only controls ad pacing; it never affects trophies or quest progress.
-          recordAcceptedRun()
           onComplete(result)
         } catch (cause) { setError(cause instanceof Error ? cause.message : 'Run checks failed'); setState('error') }
       }
@@ -191,6 +191,10 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
     } catch (cause) { clearHandshake(); setError(cause instanceof Error ? cause.message : 'Could not start a run'); setState('error') }
   }
 
+  const requestVastAd = () => {
+    setVastAdAttempt((attempt) => (attempt ?? 0) + 1)
+  }
+
   return (
     <section className="min-w-0 overflow-hidden rounded-[2rem] border-[3px] border-[#78eaff] bg-gradient-to-br from-[#252b59] via-[#171c43] to-[#292052] shadow-[0_12px_0_#090d22,0_24px_55px_rgba(4,7,24,.45)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-white/10 bg-white/[0.045] px-4 py-3 sm:px-5 sm:py-4">
@@ -217,6 +221,13 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
           </div>
         </div>}
         {vastAdAttempt !== null && <HilltopVastAd key={vastAdAttempt} attempt={vastAdAttempt} onClose={() => setVastAdAttempt(null)} />}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#111633]/70 px-4 py-3 sm:px-5">
+        <div>
+          <p className="text-sm font-black text-white">Hilltop Video Ad 3.0</p>
+          <p className="mt-0.5 text-xs text-indigo-100/60">Video break after every 10 completed runs</p>
+        </div>
+        <button type="button" onClick={requestVastAd} disabled={vastAdAttempt !== null || state === 'starting' || state === 'playing' || state === 'finishing'} className="rounded-xl border-2 border-[#13213d] bg-gradient-to-b from-[#8af4ff] to-[#5ad8ef] px-4 py-2 text-xs font-black text-[#15203e] shadow-[0_4px_0_#328aa2] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">{vastAdAttempt !== null ? 'Ad open' : 'Play video ad'}</button>
       </div>
     </section>
   )

@@ -74,7 +74,7 @@ function loadImaSdk(): Promise<ImaApi> {
   return sdkPromise ?? Promise.reject(new Error('IMA SDK initialization failed'))
 }
 
-/** Plays one Hilltop VAST break after every 10th server-accepted run. */
+/** Plays the Hilltop VAST break requested from the Arcade or run-completion flow. */
 export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const adContainerRef = useRef<HTMLDivElement>(null)

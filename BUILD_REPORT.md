@@ -274,3 +274,10 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Mobile ChickenDash frame now uses a taller 3:4 portrait aspect ratio; desktop remains 4:3. Reward options no longer display “Currently unavailable” for zero-stock categories; the existing server/stock-based redemption guard remains.
 - Frontend lint and production build passed. No Worker API calls or Neon queries were added.
 - Published commit `9be94334179ed201295adcdea6afcc0bb2abeb51` to the existing Pages project; deployment `7d8f0981-58da-408d-9ad3-587d96867a45` completed successfully. Live homepage assets no longer contain the Hilltop banner loader, live `sw.js` no longer imports Monetag, and browser navigation to Quests stayed in the app without opening another tab. Browser video playback remains unverified.
+
+## Arcade ads and Rewards cleanup — 2026-10-04
+
+- Removed the reward eligibility/rank notice that showed “Not currently eligible”, “Closed-cycle rank”, and the previous cycle Top-20 claim message. Claim controls remain guarded by server-provided eligibility/window state.
+- Restored the supplied Hilltop push-style script only inside a 250px Arcade ad iframe with an opaque sandbox origin. Its script cannot reach the DASHCUP document, cover navigation outside its frame, or intercept app navigation. It can open advertiser popups only from within the ad frame.
+- Added a visible Hilltop Video Ad 3.0 entry in the ChickenDash panel. Players can request the VAST player manually for visibility/testing; the existing automatic break remains every 10 completed local runs. Playback needs a player tap and available provider inventory. The local pacing count is not reward authority.
+- `pnpm lint` and `pnpm build` passed. Pages publication and real browser ad-fill/playback verification are pending the pushed Pages deployment; no Worker, API, Neon, or game bundle change was made.

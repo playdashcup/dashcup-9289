@@ -166,3 +166,9 @@ Updated: 2026-10-02
 
 - Removed the Hilltop banner loader and Monetag external service-worker import, reducing third-party browser loads and avoiding navigation-level ad handlers. The existing VAST overlay remains one provider request per 10 accepted runs; no per-frame or game API traffic was added.
 - Increased mobile game viewport height via CSS aspect ratio only. No Worker invocation, Neon read/write, or API endpoint was added.
+
+## Arcade ad slot restoration — 2026-10-04
+
+- The supplied ad script now loads lazily inside one Arcade-only iframe; non-Arcade sections do not mount it. Script activity is confined to that frame. It adds provider browser traffic only when the Arcade ad slot is visible; no DASHCUP Worker request, Neon query/write, API endpoint, package, or infrastructure is added.
+- The VAST player is requested at each 10th completed run and can also be opened from the visible ChickenDash video-ad control. It issues only the existing third-party VAST/IMA requests, never gameplay API traffic. Ad state does not affect rewards.
+- The local run counter controls ad pacing only. Browser storage is not used for identity, score, trophies, quest progress, or redemption.

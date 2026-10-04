@@ -204,3 +204,9 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 
 - Removed the Hilltop banner and Monetag service-worker ad loaders after reports that ad behavior was opening during dashboard navigation. The 10-accepted-run VAST player remains user-gesture gated.
 - Published Pages deployment `7d8f0981-58da-408d-9ad3-587d96867a45`; live browser navigation to Quests stayed in the app without opening a new tab. The supplied VAST tag returned VAST 3.0 creatives, but browser-level video playback still needs verification. Provider fill varies by browser, device, geography, and inventory.
+
+## Current Arcade ad publication status — 2026-10-04
+
+- Source now contains an isolated Arcade ad iframe and a visible VAST player control, and the Rewards eligibility/rank notice is removed. Frontend lint/build passed.
+- These changes are not confirmed live until the existing Pages project publishes the pushed branch. Real VAST display still depends on provider inventory, a user gesture, browser policy, and ad blocking; a VAST XML response alone does not prove a played impression.
+- Browser-level validation of the new third-party iframe and a real video impression remain unverified. No Worker/database/API blocker is implicated.

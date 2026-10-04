@@ -213,3 +213,10 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 
 - Commit `9be94334179ed201295adcdea6afcc0bb2abeb51` was pushed to the existing `codex/dashcup-rebuild` production branch. Cloudflare Pages deployment `7d8f0981-58da-408d-9ad3-587d96867a45` succeeded for project `dashcup-9289`; apex and www point to that deployment. No Worker deployment was needed.
 - Live assets no longer include the Hilltop banner loader or Monetag service-worker import. In-browser navigation to Quests stayed in the application without opening a new tab. The VAST URL returned HTTP 200 with VAST 3.0 video creatives; actual browser playback remains unverified and requires the user to tap Play ad.
+
+## Arcade ads and Rewards copy — 2026-10-04
+
+- Removed the Rewards eligibility/rank card from frontend source. Server-controlled redemption eligibility and timing remain enforced by the existing API.
+- Added the supplied `peacefulbicycle.com` script to an Arcade-only sandboxed iframe; it is not injected into the top-level homepage or shared layout. Its opaque origin prevents access to the app document. Any advertiser popup must originate from within the ad frame.
+- Added a visible VAST 3.0 “Play video ad” control under ChickenDash; it opens the existing player and does not call the DASHCUP API or Neon. Automatic ad pacing remains every 10 completed local runs. Playback requires a gesture and a no-fill response is possible.
+- Frontend lint and static production build passed. No Worker deployment, API endpoint, migration, or database change is part of this update. Existing Pages must publish this branch before these source changes are live; browser/provider playback is not confirmed.

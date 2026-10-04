@@ -152,3 +152,10 @@ Audit date: 2026-10-02
 - Removed the Arcade Hilltop banner mount and its third-party loader. The Hilltop VAST player remains mounted only after each 10th server-accepted run.
 - Removed the externally hosted Monetag service-worker import/configuration from `public/sw.js`; the local PWA offline cache remains, with a cache-version bump.
 - ChickenDash mobile presentation uses a portrait game frame while desktop remains 4:3. The Rewards panel hides zero-stock “Currently unavailable” copy but still blocks redemption when inventory is zero.
+
+## Arcade ads and Rewards follow-up — 2026-10-04
+
+- `components/Rewards/RewardPanel.tsx` no longer renders the “Not currently eligible”/closed-cycle-rank block. Claim gating still uses bootstrap eligibility/window data.
+- `components/ads/HilltopBanner.tsx` mounts the supplied banner script only in a sandboxed iframe with an opaque origin. It is included only under Arcade in `components/Dashboard.tsx`, not in the shared page layout.
+- `components/Game/GameBridge.tsx` exposes a video-ad control wired to the existing `HilltopVastAd` component. Automatic cadence is every 10 completed local runs; manual launch is disabled during active gameplay or while an ad is open. Playback needs a gesture and provider fill.
+- Frontend lint/build passed locally. Published Pages and actual browser fill/playback are not yet verified for these changes.

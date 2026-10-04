@@ -171,3 +171,9 @@ Updated: 2026-10-02
 ## Third-party ad script reduction — 2026-10-04
 
 - Removed the page-mounted Hilltop banner script and third-party Monetag service-worker import after reports that ads were opening during dashboard navigation. The separate Hilltop VAST player remains user-gesture gated and grants no rewards.
+
+## Arcade ad iframe boundary — 2026-10-04
+
+- The supplied external loader is isolated in a sandboxed iframe with an opaque origin. It cannot read or mutate the parent DASHCUP DOM or attach handlers to site navigation. Popups are sandbox-permitted only from the ad frame so provider click destinations can work; advertiser content may open after an ad click.
+- No ad click, view, or playback signal is treated as trusted completion or reward evidence. VAST state does not affect trophies or quests.
+- Local pacing uses browser storage and is not security-sensitive. App code passes no credentials or user/session identifiers to the ad script.
