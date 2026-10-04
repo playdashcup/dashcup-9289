@@ -66,7 +66,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
     const nextCount = Math.max(storedCount, acceptedRunsRef.current) + 1
     acceptedRunsRef.current = nextCount
     try { localStorage.setItem(ACCEPTED_RUNS_STORAGE_KEY, String(nextCount)) } catch { /* The frequency counter is a non-authoritative ad preference. */ }
-    if (nextCount % 15 === 0) setVastAdAttempt(nextCount)
+    if (nextCount % 10 === 0) setVastAdAttempt(nextCount)
   }
 
   const clearHandshake = () => {

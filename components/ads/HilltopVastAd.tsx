@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-const HILLTOP_VAST_TAG = 'https://second-director.com/dEm.F-z/dpG/NMvBZ/GyUm/Zezmj9QudZcUYluk/P/TKc/0SO/D_QgzHNcTwMJt/NNzBQQ4pN/DkML1INSwG'
+const HILLTOP_VAST_TAG = 'https://second-director.com/dpmvF/zMd.GnNtvnZ_GTUQ/GePmg9tuZZcUHllkAP-Tyc/0UOtDSQ/zANjTAMrtlNLzzQ/4JNdDPMd1_NPwP'
 const IMA_SDK_URL = 'https://imasdk.googleapis.com/js/sdkloader/ima3.js'
 
 type ImaEvent = { getAdsManager(video: HTMLVideoElement, settings: ImaSettings): ImaManager }
@@ -74,7 +74,7 @@ function loadImaSdk(): Promise<ImaApi> {
   return sdkPromise ?? Promise.reject(new Error('IMA SDK initialization failed'))
 }
 
-/** Plays one Hilltop VAST break after the parent has accepted the 15th run. */
+/** Plays one Hilltop VAST break after every 10th server-accepted run. */
 export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const adContainerRef = useRef<HTMLDivElement>(null)
@@ -161,7 +161,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       displayInitializedRef.current = false
       managerInitializedRef.current = false
     }
-    // A new accepted 15-run interval mounts a new component instance.
+    // A new accepted 10-run interval mounts a new component instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt])
 
