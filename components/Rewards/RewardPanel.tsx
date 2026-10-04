@@ -85,10 +85,6 @@ export function RewardPanel({
         : deliveryStatus === 'rejected'
           ? 'Email delivery failed. You can retry the same redemption and reward.'
           : null
-  const claimWindowCloses = eligibility?.claimWindowClosesAt
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(eligibility.claimWindowClosesAt))
-    : null
-
   return (
     <section className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-white/[0.035] p-5 sm:p-8">
       <div className="flex items-start justify-between">
@@ -102,7 +98,6 @@ export function RewardPanel({
       </div>
       <div className="mt-4 rounded-2xl border border-cyan-200/15 bg-cyan-200/[0.04] p-4 text-sm text-zinc-300" role="note">
         <p>Rewards unlock when a 14-day leaderboard cycle ends. Its Top 20 can redeem during the following 14-day cycle only.</p>
-        <p className="mt-2">{claimWindowCloses ? `This claim window closes ${claimWindowCloses}.` : 'The claim window closes when the current 14-day cycle ends.'} Unclaimed rewards from older cycles expire.</p>
         <p className="mt-2 text-xs text-zinc-400">Your trophy total is for the active cycle and resets to 0 when a new cycle starts. Previous-cycle scores are shown in the closed-cycle rankings.</p>
       </div>
       {deliveryMessage && <p className="mt-4 rounded-xl border border-cyan-200/15 bg-cyan-200/5 px-4 py-3 text-sm text-cyan-100" role="status">{deliveryMessage}</p>}
