@@ -665,8 +665,10 @@ app.post('/api/sponsor/offers/start', async (c) => {
   if (!trackingUrl) return c.json({ error: 'Offer tracking could not be prepared.', code: 'SPONSOR_TRACKING_UNAVAILABLE' }, 503)
   const country = (c.req.raw as Request & { cf?: { country?: string } }).cf?.country ?? ''
   await sqlFor(c.env)`INSERT INTO mylead_clicks(click_id,user_id,provider_metadata)
-    VALUES(${clickId},${c.get('userId')},jsonb_build_object('provider','cpalead','campaign_id',${body.offerId},
-      'event_type',${publicOffer.type.toLowerCase()},'country',${country.toUpperCase()}))`
+    VALUES(${clickId},${c.get('userId')},jsonb_build_object('provider','cpalead',
+      'campaign_id',CAST(${body.offerId} AS text),
+      'event_type',CAST(${publicOffer.type.toLowerCase()} AS text),
+      'country',CAST(${country.toUpperCase()} AS text)))`
   return c.json({ success: true, url: trackingUrl })
 })
 
@@ -694,7 +696,7 @@ app.get('/webhooks/cpalead', async (c) => {
     ), conversion AS (
       INSERT INTO provider_conversions(provider,transaction_id,user_id,event_type,status,reward_metadata)
       SELECT 'cpalead',${leadId},click.user_id,click.event_type,'verified',
-        jsonb_build_object('campaign_id',${campaignId},'country_iso',${normalizedCountry})
+        jsonb_build_object('campaign_id',CAST(${campaignId} AS text),'country_iso',CAST(${normalizedCountry} AS text))
       FROM click WHERE click.event_type IN ('cpa','cpi','ppi')
       ON CONFLICT(provider,transaction_id) DO NOTHING
       RETURNING user_id

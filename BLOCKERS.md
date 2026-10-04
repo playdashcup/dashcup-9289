@@ -173,3 +173,10 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - The CPAlead API key was pasted into the conversation. Rotate it in CPAlead before using it elsewhere. This integration does not need that key for the Offers API and intentionally does not use the conversions polling API.
 - Campaign IDs are server-allowlisted and current feed metadata was verified. Some feed payout types/actions and signed link hosts differ from labels/hosts in the pasted list; rendering uses live feed metadata while enforcing the narrower country/device restrictions provided by the owner.
 - No production Worker or Pages deployment, provider postback, or real conversion was made. Valid/duplicate CPA/CPI/PPI callback verification still requires the CPAlead callback password and provider-side postback configuration.
+
+## Current CPAlead sponsor status — 2026-10-04 (supersedes the historical setup state above)
+
+- The ambiguous Postgres parameter failure on sponsor offer start was fixed and deployed. Staging version: `1064ba80-edea-4a50-bbd6-3583056c3bc3`; production version: `fd2e3a6f-41df-47f2-b008-b982d7aff1de`.
+- The production Worker now has `CPALEAD_POSTBACK_PASSWORD` in secret storage. Staging and production offer reads/start were smoke-tested; an eligible offer appeared for an India/desktop test client and returned a `subid`. A click alone did not advance quest progress; claiming at zero progress returned 409. Missing/wrong callback passwords returned 403.
+- **Owner action for real conversions:** update the CPAlead dashboard callback from the staging `workers.dev` host to the production callback shown in `DEPLOYMENT.md`. Then complete one qualifying offer to verify the real callback and quest progression. No synthetic conversion was inserted.
+- No frontend Pages redeploy or Neon schema migration was needed for this fix. Other previously listed admin, inventory, Resend and ad-provider blockers are unchanged.
