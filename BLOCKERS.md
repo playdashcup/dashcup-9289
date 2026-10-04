@@ -221,3 +221,10 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 
 - Pages deployment `be3fec3a-814c-4c0f-b284-2677e5c5ec36` serves commit `b82c18c84830608271b2712f00c2dcbeced7e272` on the existing project. Browser accessibility confirms the extra schedule heading/manual video button are removed and the new Rewards email copy is live.
 - The code automatically attempts muted VAST playback after run 10. Full ten-run production playback was not simulated; the last direct ad request had no fill. Browser autoplay rules or provider availability can still prevent video playback.
+
+## Hilltop banner and corner placement — 2026-10-04
+
+- Frontend commit `4d5cf3857f187d7dfe9b5cf4412bef6e76816dd0` is live on existing Pages project `dashcup-9289`, production deployment `f0854166-9792-4bcb-bd38-f1df0dfbe0c9` (successful). Existing `dashcup.com` and `www.dashcup.com` aliases remain active.
+- Live browser verification: the Arcade banner slot visibly rendered a provider banner creative. The requested corner tag rendered a video creative on the initial load; on a later view the corner frame was blank, so its fill/playback is intermittent and controlled by Hilltop inventory. The corner iframe is now mounted on all dashboard tabs.
+- Both third-party tags run in separate sandboxed opaque-origin iframes (`allow-scripts allow-popups` only); no Worker/API request, Neon query, or DB write was added. The previously disabled push tag that showed fake browser-security warnings remains absent.
+- `pnpm lint`, `pnpm build`, and `git diff --check` passed before deployment. This was frontend-only; Worker and Neon were unchanged.

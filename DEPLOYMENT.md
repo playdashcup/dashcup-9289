@@ -233,3 +233,10 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - Live UI confirms there is no standalone video-ad heading/schedule/button. The Rewards email helper text is “Email verification required to send the reward”.
 - After each 10 completed local runs, the current VAST flow requests muted-autoplay inventory and automatically starts its manager when loaded. A tap fallback remains for autoplay restrictions. No real ad playback was verified because the earlier browser request received no fill; ten production runs were not created for testing.
 - No Worker, API, game bundle, or Neon change. Frontend lint/build passed.
+
+## Hilltop banner and corner placement — 2026-10-04
+
+- Frontend commit `4d5cf3857f187d7dfe9b5cf4412bef6e76816dd0` is live on existing Pages project `dashcup-9289`, production deployment `f0854166-9792-4bcb-bd38-f1df0dfbe0c9` (successful). Existing `dashcup.com` and `www.dashcup.com` aliases remain active.
+- Live browser verification: the Arcade banner slot visibly rendered a provider banner creative. The requested corner tag rendered a video creative on the initial load; on a later view the corner frame was blank, so its fill/playback is intermittent and controlled by Hilltop inventory. The corner iframe is now mounted on all dashboard tabs.
+- Both third-party tags run in separate sandboxed opaque-origin iframes (`allow-scripts allow-popups` only); no Worker/API request, Neon query, or DB write was added. The previously disabled push tag that showed fake browser-security warnings remains absent.
+- `pnpm lint`, `pnpm build`, and `git diff --check` passed before deployment. This was frontend-only; Worker and Neon were unchanged.

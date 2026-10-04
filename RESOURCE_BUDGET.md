@@ -182,3 +182,10 @@ Updated: 2026-10-02
 
 - The live frontend no longer displays a VAST schedule/card/button. VAST provider traffic remains limited to the existing ad request on every 10th completed run; there are no DASHCUP Worker calls, Neon queries, or DB writes added by autoplay logic.
 - Browser verification confirmed the Rewards email copy. No production runs were synthesized to test the tenth-run transition. Previous manual VAST request returned no fill.
+
+## Hilltop banner and corner placement — 2026-10-04
+
+- Frontend commit `4d5cf3857f187d7dfe9b5cf4412bef6e76816dd0` is live on existing Pages project `dashcup-9289`, production deployment `f0854166-9792-4bcb-bd38-f1df0dfbe0c9` (successful). Existing `dashcup.com` and `www.dashcup.com` aliases remain active.
+- Live browser verification: the Arcade banner slot visibly rendered a provider banner creative. The requested corner tag rendered a video creative on the initial load; on a later view the corner frame was blank, so its fill/playback is intermittent and controlled by Hilltop inventory. The corner iframe is now mounted on all dashboard tabs.
+- Both third-party tags run in separate sandboxed opaque-origin iframes (`allow-scripts allow-popups` only); no Worker/API request, Neon query, or DB write was added. The previously disabled push tag that showed fake browser-security warnings remains absent.
+- `pnpm lint`, `pnpm build`, and `git diff --check` passed before deployment. This was frontend-only; Worker and Neon were unchanged.
