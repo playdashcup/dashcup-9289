@@ -317,3 +317,14 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Replaced the previous in-page run tag with the user's `hta-code-7484353 (1).txt` endpoint. A direct endpoint check returned HTTP 200 HilltopAds VAST 3.0 XML with 12 MP4/WebM media entries. Production source triggers an IMA ad attempt after each tenth completed local run and keeps the prior local run counter. The old VAST URL, old in-page tag, and “No video ad available” overlay text are absent from the current built bundle.
 - Reintroduced only the video surface required by IMA. It has no custom frame/card/error panel; it closes quietly on no-fill or provider failure. Muted autoplay is attempted, with a small “Play ad” fallback for browsers requiring a direct user gesture.
 - Live browser check confirms ChickenDash and the Arcade banner load normally with no video overlay at page load. `pnpm lint`, `pnpm build`, and `git diff --check` passed. A real tenth-run IMA playback was not exercised; provider XML has a video creative, but end-to-end playback remains unverified. No Worker/API call, Neon query, database write, or infrastructure change was added.
+## Client-side Hilltop ads and banner sizing — 2026-10-04 (local, not deployed)
+
+- Added the supplied 7483905 video placement and 7486709 in-page placement to the client dashboard, delayed until 60 seconds and 35 seconds respectively, each in its own sandboxed iframe. Each provider script loads once per page session; Hilltop owns repeat frequency and advertiser caps. No Worker, API, Neon, or database calls were added.
+- Kept the existing every-10-completed-runs VAST attempt unchanged. Narrowed the Arcade banner iframe from 970px to 320px to remove the wide empty region shown in the supplied screenshot; the provider creative/image itself cannot be repaired by frontend sizing.
+- `pnpm lint` and `pnpm build` passed. No Cloudflare access/deployment, Git commit, or push was performed. Current HEAD before these local edits: `2a08a113598eda579fd221a54e3b74006ee297fd`.
+
+## Hilltop VAST playback gesture fix — 2026-10-04 (awaiting Pages deployment)
+
+- The newly supplied `hta-code-7484353 (2).txt` contains the same VAST URL already configured. A direct request returned HTTP 200 and valid VAST 3.0 XML with 2 ads, 10 MP4/WebM media entries, a 95-second creative, and a 15-second skip offset.
+- Updated IMA to wait for the manager and require a direct `Play video ad` tap before initialization/playback. Google IMA requires `AdDisplayContainer.initialize()` from a user gesture on mobile; the previous async autoplay attempt could be blocked. The pending-ad timeout is 60 seconds and playback allowance is 120 seconds. No score/reward is associated with watching the ad.
+- `pnpm lint`, `pnpm build`, and `git diff --check` passed. Live playback is not yet verified; deployment is pending. Worker and Neon were not changed.

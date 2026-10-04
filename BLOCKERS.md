@@ -242,3 +242,12 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Replaced the previous in-page run tag with the user's `hta-code-7484353 (1).txt` endpoint. A direct endpoint check returned HTTP 200 HilltopAds VAST 3.0 XML with 12 MP4/WebM media entries. Production source triggers an IMA ad attempt after each tenth completed local run and keeps the prior local run counter. The old VAST URL, old in-page tag, and “No video ad available” overlay text are absent from the current built bundle.
 - Reintroduced only the video surface required by IMA. It has no custom frame/card/error panel; it closes quietly on no-fill or provider failure. Muted autoplay is attempted, with a small “Play ad” fallback for browsers requiring a direct user gesture.
 - Live browser check confirms ChickenDash and the Arcade banner load normally with no video overlay at page load. `pnpm lint`, `pnpm build`, and `git diff --check` passed. A real tenth-run IMA playback was not exercised; provider XML has a video creative, but end-to-end playback remains unverified. No Worker/API call, Neon query, database write, or infrastructure change was added.
+
+## Hilltop recurrence and banner creative — 2026-10-04
+
+- The supplied 7483905 and 7486709 client tags are locally integrated with initial 60s and 35s delays. They are loaded once per page view; repeating them at those intervals is not implemented because Hilltop's own guidance describes frequency caps and a default of two In-Page displays per hour. Configure a provider-supported zone refresh/frequency setting if Hilltop explicitly permits the requested cadence. The current client source is not deployed.
+- The screenshot's oversized blank region is reduced by bounding the banner frame to 320px, but a broken/missing image inside Hilltop's creative cannot be fixed by app CSS. A working clean banner creative/tag remains a provider-side requirement.
+- No Cloudflare action was taken, per instruction. Publish remains pending explicit follow-up and is not claimed complete.
+## Hilltop VAST playback verification — 2026-10-04
+
+- The supplied VAST endpoint currently returns parseable VAST 3.0 with video media, but a successful XML response is not proof that a specific browser can play the ad. The updated local IMA flow requires the player to tap Play video ad after the manager loads; browser playback and provider fill remain unverified until deployment and a real user-facing test.

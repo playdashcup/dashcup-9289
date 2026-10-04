@@ -82,14 +82,15 @@ export function HilltopVastBreak({ onClose }: { onClose: () => void }) {
   const displayInitializedRef = useRef(false)
   const managerInitializedRef = useRef(false)
   const contentPausedRef = useRef(false)
+  const timeoutRef = useRef<number | undefined>(undefined)
   const [playing, setPlaying] = useState(false)
-  const [requiresTap, setRequiresTap] = useState(false)
+  const [adsReady, setAdsReady] = useState(false)
+  const [playError, setPlayError] = useState(false)
 
   useEffect(() => {
     if (!videoRef.current || !adContainerRef.current) return
     let disposed = false
     let finished = false
-    let timeout: number | undefined
     let manager: ImaManager | undefined
     let loader: ImaLoader | undefined
     displayInitializedRef.current = false
@@ -98,16 +99,19 @@ export function HilltopVastBreak({ onClose }: { onClose: () => void }) {
     const finish = () => {
       if (finished) return
       finished = true
-      if (timeout !== undefined) window.clearTimeout(timeout)
+      if (timeoutRef.current !== undefined) window.clearTimeout(timeoutRef.current)
       manager?.destroy()
       loader?.destroy()
       managerRef.current = null
       displayRef.current = null
-      if (!disposed) onClose()
+      if (!disposed) {
+        setAdsReady(false)
+        onClose()
+      }
     }
 
     // Fail open so a blocked SDK or empty ad response cannot trap the player.
-    timeout = window.setTimeout(finish, 20_000)
+    timeoutRef.current = window.setTimeout(finish, 30_000)
     void loadImaSdk().then((ima) => {
       const video = videoRef.current
       const adContainer = adContainerRef.current
@@ -123,29 +127,24 @@ export function HilltopVastBreak({ onClose }: { onClose: () => void }) {
         manager = adsManager
         managerRef.current = adsManager
         adsManager.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, () => {
-          if (!contentPausedRef.current && !disposed) setRequiresTap(true)
+          if (!contentPausedRef.current && !disposed) setPlayError(true)
           else finish()
         })
         adsManager.addEventListener(ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED, () => {
           contentPausedRef.current = true
-          if (timeout !== undefined) window.clearTimeout(timeout)
-          timeout = window.setTimeout(finish, 90_000)
+          if (!disposed) setAdsReady(false)
+          if (timeoutRef.current !== undefined) window.clearTimeout(timeoutRef.current)
+          // The supplied VAST currently returns a 95-second creative.
+          timeoutRef.current = window.setTimeout(finish, 120_000)
           if (!disposed) setPlaying(true)
         })
         adsManager.addEventListener(ima.AdEvent.Type.CONTENT_RESUME_REQUESTED, finish)
         adsManager.addEventListener(ima.AdEvent.Type.ALL_ADS_COMPLETED, finish)
-        try {
-          display.initialize()
-          displayInitializedRef.current = true
-          adsManager.init(adContainer.clientWidth || 640, adContainer.clientHeight || 360, ima.ViewMode.NORMAL)
-          managerInitializedRef.current = true
-          adsManager.setVolume?.(0)
-          adsManager.start()
-        } catch {
-          if (!disposed) setRequiresTap(true)
-          if (timeout !== undefined) window.clearTimeout(timeout)
-          timeout = window.setTimeout(finish, 20_000)
-        }
+        // IMA's display container and manager are started by the visible button
+        // below, directly in the player's user-gesture handler.
+        if (timeoutRef.current !== undefined) window.clearTimeout(timeoutRef.current)
+        timeoutRef.current = window.setTimeout(finish, 60_000)
+        if (!disposed) setAdsReady(true)
       })
       const request = new ima.AdsRequest()
       request.adTagUrl = HILLTOP_VAST_TAG
@@ -153,14 +152,14 @@ export function HilltopVastBreak({ onClose }: { onClose: () => void }) {
       request.linearAdSlotHeight = adContainer.clientHeight || 360
       request.nonLinearAdSlotWidth = request.linearAdSlotWidth
       request.nonLinearAdSlotHeight = Math.round(request.linearAdSlotHeight / 3)
-      request.setAdWillAutoPlay?.(true)
+      request.setAdWillAutoPlay?.(false)
       request.setAdWillPlayMuted?.(true)
       adsLoader.requestAds(request)
     }).catch(finish)
 
     return () => {
       disposed = true
-      if (timeout !== undefined) window.clearTimeout(timeout)
+      if (timeoutRef.current !== undefined) window.clearTimeout(timeoutRef.current)
       manager?.destroy()
       loader?.destroy()
       managerRef.current = null
@@ -175,7 +174,7 @@ export function HilltopVastBreak({ onClose }: { onClose: () => void }) {
     const display = displayRef.current
     const manager = managerRef.current
     const container = adContainerRef.current
-    if (!ima || !display || !manager || !container) return
+    if (!ima || !display || !manager || !container || !adsReady) return
     try {
       if (!displayInitializedRef.current) {
         display.initialize()
@@ -186,10 +185,14 @@ export function HilltopVastBreak({ onClose }: { onClose: () => void }) {
         managerInitializedRef.current = true
       }
       manager.setVolume?.(0)
-      setRequiresTap(false)
+      setAdsReady(false)
+      setPlayError(false)
+      if (timeoutRef.current !== undefined) window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = window.setTimeout(() => onClose(), 120_000)
       manager.start()
     } catch {
-      onClose()
+      setPlayError(true)
+      setAdsReady(true)
     }
   }
 
@@ -197,7 +200,8 @@ export function HilltopVastBreak({ onClose }: { onClose: () => void }) {
     <div className="pointer-events-none absolute inset-2 z-30 overflow-hidden data-[playing=true]:pointer-events-auto data-[playing=true]:bg-black sm:inset-3" data-playing={playing} aria-label="Video advertisement">
       <video ref={videoRef} className="absolute inset-0 size-full bg-transparent object-contain" playsInline muted />
       <div ref={adContainerRef} className="absolute inset-0" />
-      {requiresTap && !playing && <button type="button" onClick={startFromGesture} className="pointer-events-auto absolute right-3 top-3 rounded-full bg-black/75 px-3 py-2 text-xs font-bold text-white shadow-lg">Play ad</button>}
+      {adsReady && !playing && <button type="button" onClick={startFromGesture} className="pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-[#13213d] bg-gradient-to-b from-[#b9ff70] to-[#81e849] px-5 py-3 text-sm font-black uppercase tracking-wide text-[#18233a] shadow-[0_4px_0_#397e39]">Play video ad</button>}
+      {playError && !playing && <p role="status" className="pointer-events-none absolute inset-x-3 bottom-3 text-center text-xs font-semibold text-white drop-shadow">This ad could not start. You can keep playing.</p>}
     </div>
   )
 }

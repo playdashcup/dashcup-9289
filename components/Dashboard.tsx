@@ -12,6 +12,7 @@ import { ReferralPanel } from '@/components/Referrals/ReferralPanel'
 import { ServiceWorker } from '@/components/ServiceWorker'
 import { AntiCheatTelemetry } from '@/components/Security/AntiCheatTelemetry'
 import { HilltopArcadeAd } from '@/components/ads/HilltopBanner'
+import { ClientHilltopSchedule } from '@/components/ads/ClientHilltopSchedule'
 import { Trophy, Gamepad2, Target, Crown, Gift, Zap } from 'lucide-react'
 
 const sections = [
@@ -94,6 +95,7 @@ export function Dashboard() {
     <div className="min-h-screen text-zinc-100 selection:bg-pink-300 selection:text-indigo-950">
       <ServiceWorker />
       <AntiCheatTelemetry />
+      <ClientHilltopSchedule />
       <header className="sticky top-0 z-20 border-b-2 border-white/10 bg-[#11142f]/85 shadow-[0_5px_0_rgba(8,12,35,.45)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8">
           <button onClick={() => setActive('arcade')} className="flex items-center gap-3" aria-label="Go to DASHCUP arcade">

@@ -254,3 +254,13 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - Replaced the previous in-page run tag with the user's `hta-code-7484353 (1).txt` endpoint. A direct endpoint check returned HTTP 200 HilltopAds VAST 3.0 XML with 12 MP4/WebM media entries. Production source triggers an IMA ad attempt after each tenth completed local run and keeps the prior local run counter. The old VAST URL, old in-page tag, and “No video ad available” overlay text are absent from the current built bundle.
 - Reintroduced only the video surface required by IMA. It has no custom frame/card/error panel; it closes quietly on no-fill or provider failure. Muted autoplay is attempted, with a small “Play ad” fallback for browsers requiring a direct user gesture.
 - Live browser check confirms ChickenDash and the Arcade banner load normally with no video overlay at page load. `pnpm lint`, `pnpm build`, and `git diff --check` passed. A real tenth-run IMA playback was not exercised; provider XML has a video creative, but end-to-end playback remains unverified. No Worker/API call, Neon query, database write, or infrastructure change was added.
+
+## Delayed client-side Hilltop tags — 2026-10-04 (local, not deployed)
+
+- The 7483905 video tag is mounted once after 60 seconds; the 7486709 In-Page tag is mounted once after 35 seconds. Both are client-side and sandboxed. The provider scripts manage any repeat display and frequency caps; the app does not repeatedly reload either tag.
+- The every-10-completed-runs VAST implementation is unchanged. The banner iframe width is now capped at 320px; broken/missing creative assets remain provider-side.
+- `pnpm lint` and `pnpm build` passed. No Cloudflare/Wrangler operations, deployment, commit, or push was performed. HEAD before the local edits: `2a08a113598eda579fd221a54e3b74006ee297fd`.
+## VAST playback fix — 2026-10-04 (awaiting Pages deployment)
+
+- The user-provided `(2)` VAST file matches the existing VAST URL. Its endpoint returned valid VAST 3.0 XML at check time; playback still requires browser-side validation. Local IMA now waits for the ad manager and presents a direct Play video ad action, required for user-gesture initialization on mobile browsers.
+- Frontend lint/build passed. Pages deployment is pending; no Worker/API or Neon deployment was performed for this change.

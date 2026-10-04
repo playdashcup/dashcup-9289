@@ -208,3 +208,13 @@ Updated: 2026-10-02
 - Replaced the previous in-page run tag with the user's `hta-code-7484353 (1).txt` endpoint. A direct endpoint check returned HTTP 200 HilltopAds VAST 3.0 XML with 12 MP4/WebM media entries. Production source triggers an IMA ad attempt after each tenth completed local run and keeps the prior local run counter. The old VAST URL, old in-page tag, and “No video ad available” overlay text are absent from the current built bundle.
 - Reintroduced only the video surface required by IMA. It has no custom frame/card/error panel; it closes quietly on no-fill or provider failure. Muted autoplay is attempted, with a small “Play ad” fallback for browsers requiring a direct user gesture.
 - Live browser check confirms ChickenDash and the Arcade banner load normally with no video overlay at page load. `pnpm lint`, `pnpm build`, and `git diff --check` passed. A real tenth-run IMA playback was not exercised; provider XML has a video creative, but end-to-end playback remains unverified. No Worker/API call, Neon query, database write, or infrastructure change was added.
+
+## Client-side ad tag update — 2026-10-04 (local)
+
+- The supplied 7483905 and 7486709 scripts load only in isolated `sandbox="allow-scripts allow-popups"` frames, after one 60-second and one 35-second client delay. They do not receive app/session identifiers, and no user navigation or API data is exposed to them by the app.
+- The scripts are third-party executable content; iframe isolation prevents direct same-origin access to DASHCUP but cannot prevent a deceptive creative from appearing inside the bounded ad frame. The close control dismisses each placement for the current page session.
+- Tags are not reloaded on a short repeating timer. Hilltop documents frequency caps and says its In-Page format defaults to two displays per hour; repeated reinjection could duplicate ad requests or work against provider limits. See [HilltopAds In-Page format](https://hilltopads.com/publishers-help/id/articles/9031030-apa-yang-dimaksud-dengan-format-iklan-dorong-dalam-halaman) and [ad display troubleshooting](https://hilltopads.com/publishers-help/en/articles/9065083-why-do-not-you-see-any-ads-on-a-website).
+
+## IMA user-gesture playback — 2026-10-04
+
+- The VAST manager now starts only from the explicit Play video ad click, so IMA initialization is user-gesture-bound. It remains muted and does not grant trophies, quest progress, or other rewards. The provider endpoint is remote and its availability/content is not controlled by DASHCUP.

@@ -192,3 +192,12 @@ Audit date: 2026-10-02
 - Replaced the previous in-page run tag with the user's `hta-code-7484353 (1).txt` endpoint. A direct endpoint check returned HTTP 200 HilltopAds VAST 3.0 XML with 12 MP4/WebM media entries. Production source triggers an IMA ad attempt after each tenth completed local run and keeps the prior local run counter. The old VAST URL, old in-page tag, and “No video ad available” overlay text are absent from the current built bundle.
 - Reintroduced only the video surface required by IMA. It has no custom frame/card/error panel; it closes quietly on no-fill or provider failure. Muted autoplay is attempted, with a small “Play ad” fallback for browsers requiring a direct user gesture.
 - Live browser check confirms ChickenDash and the Arcade banner load normally with no video overlay at page load. `pnpm lint`, `pnpm build`, and `git diff --check` passed. A real tenth-run IMA playback was not exercised; provider XML has a video creative, but end-to-end playback remains unverified. No Worker/API call, Neon query, database write, or infrastructure change was added.
+
+## Client-side ad tag update — 2026-10-04 (local)
+
+- `components/ads/ClientHilltopSchedule.tsx` loads the supplied Hilltop 7483905 video tag after 60 seconds and 7486709 in-page tag after 35 seconds, once per visible page session. Each runs in an isolated sandboxed iframe; the page does not run these scripts in its own origin.
+- The existing 10-completed-run VAST integration is unchanged. The Arcade banner frame is capped at 320×250 to avoid the unused 970px-wide white area in the screenshot. Provider creative contents and no-fill behavior remain external.
+## Hilltop VAST playback follow-up — 2026-10-04
+
+- `hta-code-7484353 (2).txt` is the same VAST URL already used by `HilltopVastBreak.tsx`; it currently responds with valid VAST 3.0 XML and 2 ad entries. The local IMA flow now waits for an AdsManager, then exposes a direct user-gesture Play video ad control before initialization. This follows the IMA requirement for `AdDisplayContainer.initialize()` on mobile.
+- A valid XML response does not prove browser playback or local inventory fill. No live end-to-end ad playback has been verified yet.

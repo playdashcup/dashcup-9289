@@ -203,3 +203,11 @@ Updated: 2026-10-02
 - Replaced the previous in-page run tag with the user's `hta-code-7484353 (1).txt` endpoint. A direct endpoint check returned HTTP 200 HilltopAds VAST 3.0 XML with 12 MP4/WebM media entries. Production source triggers an IMA ad attempt after each tenth completed local run and keeps the prior local run counter. The old VAST URL, old in-page tag, and “No video ad available” overlay text are absent from the current built bundle.
 - Reintroduced only the video surface required by IMA. It has no custom frame/card/error panel; it closes quietly on no-fill or provider failure. Muted autoplay is attempted, with a small “Play ad” fallback for browsers requiring a direct user gesture.
 - Live browser check confirms ChickenDash and the Arcade banner load normally with no video overlay at page load. `pnpm lint`, `pnpm build`, and `git diff --check` passed. A real tenth-run IMA playback was not exercised; provider XML has a video creative, but end-to-end playback remains unverified. No Worker/API call, Neon query, database write, or infrastructure change was added.
+
+## Client ad scheduling — 2026-10-04 (local)
+
+- Added two one-shot client timers per page view (35s and 60s) and at most one script load for each corresponding Hilltop tag. No Worker invocation, frontend API call, Neon read/write, or app-provider conversion call was added.
+- The VAST attempt remains tied to every tenth completed run. Short-interval iframe/script reloads were avoided; provider frequency controls remain authoritative.
+## VAST playback adjustment — 2026-10-04
+
+- The existing one request per tenth completed run is unchanged. IMA initialization now waits for the player gesture; no additional API, Worker, Neon, or database work was introduced.

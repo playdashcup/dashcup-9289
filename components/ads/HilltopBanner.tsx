@@ -26,14 +26,14 @@ function adDocument(scriptUrl: string) {
 </html>`
 }
 
-/** Keep the banner tag inside its existing, bounded placement. */
+/** Keep the 300x250 banner tag inside its actual ad-sized placement. */
 export function HilltopArcadeAd() {
   return (
     <section aria-label="Hilltop banner advertisement" className="overflow-hidden rounded-2xl border border-white/10 bg-[#171b3d]/70 p-4 sm:p-5">
       <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[.18em] text-cyan-200">Sponsored</p>
       <iframe
         title="Hilltop banner advertisement"
-        className="mx-auto block h-[250px] w-full max-w-[970px] overflow-hidden rounded-xl border-0 bg-transparent"
+        className="mx-auto block h-[250px] w-full max-w-[320px] overflow-hidden rounded-xl border-0 bg-transparent"
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
         sandbox="allow-scripts allow-popups"
