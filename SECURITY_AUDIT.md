@@ -177,3 +177,8 @@ Updated: 2026-10-02
 - The supplied external loader was tested in a sandboxed iframe, where it rendered repeated fake browser-security warning panels. It was removed rather than exposed to site visitors. The current Arcade banner slot runs no third-party script.
 - No ad click, view, or playback signal is treated as trusted completion or reward evidence. VAST state does not affect trophies or quests.
 - Local VAST pacing uses browser storage and is not security-sensitive. App code passes no credentials or user/session identifiers to the ad provider.
+
+## Final live ad safety check — 2026-10-04
+
+- The brief Pages deployment containing the supplied ad script was superseded with commit `f71e48d5793c8233ed59e5139f43bc79fd66e7ae`. Live browser state now shows only the paused banner message; the submitted remote code is absent from final source and build.
+- The VAST control was manually exercised. No ad filled, and no reward/quest state is tied to the ad. Production Worker and Neon were untouched.

@@ -159,3 +159,9 @@ Audit date: 2026-10-02
 - `components/ads/HilltopBanner.tsx` deliberately does not execute the submitted tag. Live inspection showed the tag injecting repeated fake security-alert panels; the Arcade now shows a paused-slot message pending a clean banner-only creative.
 - `components/Game/GameBridge.tsx` exposes a video-ad control wired to the existing `HilltopVastAd` component. Automatic cadence is every 10 completed local runs; manual launch is disabled during active gameplay or while an ad is open. Playback needs a gesture and provider fill.
 - The visible VAST control was checked on the live site and returned “No video ad available”. Pages currently serves commit `bd596bde6c25f4d6083509d5481593fbd1a11db5`, which predates the final removal and must be redeployed. After the removal, frontend lint, static build, and `git diff --check` pass; the unsafe URL is absent from built output/source.
+
+## Final live source verification — 2026-10-04
+
+- Pages now serves commit `f71e48d5793c8233ed59e5139f43bc79fd66e7ae` as deployment `520c3ed1-906b-4910-aaab-d92079264ec5`. The old `bd596bde6c25f4d6083509d5481593fbd1a11db5` deployment briefly contained the sandboxed external tag; it was superseded by the safety removal.
+- Live browser accessibility confirms the paused banner slot and VAST launch control. The ad tag was not used after the browser revealed its fake-warning creative. VAST returned no fill in the tested session.
+- Rewards page no longer renders the specific ineligible/rank card. Its other cycle timing/reset note remains.

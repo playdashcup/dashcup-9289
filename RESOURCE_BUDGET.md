@@ -172,3 +172,8 @@ Updated: 2026-10-02
 - The supplied ad script was loaded in an Arcade-only iframe, then removed after browser verification showed it creating fake security-warning content. The current source uses a local paused-placement message and makes no banner-provider request.
 - The VAST player is requested at each 10th completed run and can also be opened from the visible ChickenDash video-ad control. It issues only the existing third-party VAST/IMA requests, never gameplay API traffic. A live manual test produced no fill. Ad state does not affect rewards.
 - The local run counter controls ad pacing only. Browser storage is not used for identity, score, trophies, quest progress, or redemption.
+
+## Final Arcade ad verification — 2026-10-04
+
+- The unsafe banner script is absent from the live deployment; the Arcade slot is static text and creates no provider load. The VAST button creates only the existing ad SDK/tag requests when clicked; manual verification received no fill. Neither path adds Worker calls or Neon traffic.
+- Existing game cadence still attempts VAST every ten completed runs, based on a local preference counter. This count grants no game/reward authority.

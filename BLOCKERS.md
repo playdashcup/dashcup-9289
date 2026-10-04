@@ -210,3 +210,9 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - The Rewards eligibility/rank notice is removed and the VAST player control is visible on the live Arcade page. A direct browser test of the VAST player ended in “No video ad available”; provider-side inventory/tag configuration must be corrected before video can play.
 - The submitted banner/push script was tested on the live page and rendered many fake “Google Chrome” security-warning panels. It has been removed from source; a visible paused-placement notice replaces it. Do not restore this tag. A clean banner-only creative is needed from the ad provider.
 - The removal is committed locally as a follow-up to `bd596bde6c25f4d6083509d5481593fbd1a11db5`; Pages currently still runs that earlier deployment until the follow-up is pushed and published. No Worker/database/API blocker is implicated.
+
+## Final live check — 2026-10-04
+
+- Resolved the unsafe-banner deployment quickly: final commit `f71e48d5793c8233ed59e5139f43bc79fd66e7ae` is deployed as Pages deployment `520c3ed1-906b-4910-aaab-d92079264ec5`; apex/www aliases are active.
+- Browser verification shows the eligibility/rank block removed, a visible VAST control, and a paused banner placeholder. A manual VAST request returned no video ad. Obtain a clean banner-only creative and provider-side VAST fill/configuration before ads can be active.
+- No Worker, database, or API blocker is implicated; frontend lint/build passed.

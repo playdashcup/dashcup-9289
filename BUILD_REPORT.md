@@ -281,3 +281,11 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - A live browser check showed the supplied Hilltop push-style tag rendering repeated fake “Google Chrome” security warnings inside its iframe. Removed the tag immediately; the Arcade now displays a paused banner slot and does not execute that provider script.
 - Added a visible Hilltop Video Ad 3.0 entry in the ChickenDash panel. Players can request the VAST player manually for visibility/testing; the existing automatic break remains every 10 completed local runs. Playback needs a player tap and available provider inventory. The local pacing count is not reward authority.
 - Commit `bd596bde6c25f4d6083509d5481593fbd1a11db5` deployed to existing Pages as `13fea7c6-5c6f-484c-a16d-301c801599dd`; it contains the initial sandbox attempt and must be superseded by the follow-up removal commit. The manual VAST request was browser-tested and returned “No video ad available”. Frontend lint/build passed; no Worker, API, Neon, or game bundle change was made.
+
+## Final live verification — 2026-10-04
+
+- Follow-up commit `f71e48d5793c8233ed59e5139f43bc79fd66e7ae` is live on the existing Pages project as deployment `520c3ed1-906b-4910-aaab-d92079264ec5`; deployment stages succeeded and apex/www aliases are active. `https://www.dashcup.com/` returned 200.
+- Browser accessibility inspection confirmed the Arcade shows ChickenDash, a visible “Play video ad” control, and a paused banner slot. The unsafe `peacefulbicycle.com` script is absent from the final source/build.
+- Manual VAST test reached the existing IMA player and ended with “No video ad available”. The provider must supply inventory/configuration; a visible button cannot create a creative.
+- Browser inspection of Rewards confirmed the “Not currently eligible”/closed-cycle rank card is gone. The separate cycle policy note and server-side reward eligibility controls remain.
+- `pnpm lint`, `pnpm build`, `git diff --check`, absence checks for the removed eligibility copy, and absence checks for the unsafe script passed. No Worker, API, Neon schema, or game bundle deployment was made.
