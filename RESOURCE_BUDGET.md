@@ -156,3 +156,8 @@ Updated: 2026-10-02
 
 - No API request or database round-trip was added. Bootstrap reuses its existing combined leaderboard query to supply the current-cycle trophy total and reward-window metadata. `/api/me` reads cycle score through a left join in its existing query.
 - Quest claims removed the redundant user-wallet update and atomically upsert the current biweekly score in the existing claim statement. Game completion reads the resulting cycle score from its existing statement. The 14-day window is computed in Worker code and adds no Neon query.
+
+## Ad and spawn follow-up — 2026-10-04
+
+- River log spawning is local game logic only. No API endpoint, Worker request, Neon query, or write was added.
+- Hilltop push and page-level video-slider loaders were removed because they could intercept app navigation. The existing inline banner loads only inside its Arcade placement. The existing VAST flow still requests an ad once per 10 server-accepted runs; tapping Play ad starts the already-requested creative and adds no app API/database call.

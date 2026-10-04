@@ -105,10 +105,10 @@ export default class Water extends Object3D {
   };
 
   generateDynamic = () => {
-    // Speeds: .01 through .08
-    // Number of cars: 1 through 3
+    // Keep a steady three-log stream so a river row does not develop long,
+    // unboardable gaps. The original row direction and speed variation remain.
     let speed = Math.random() * 0.05 + 0.02;
-    let numItems = Math.floor(Math.random() * 2) + 2;
+    const numItems = 3;
     let xDir = 1;
 
     if (Math.random() > 0.5) {
@@ -139,7 +139,7 @@ export default class Water extends Object3D {
       this.entities[x].speed = speed * xDir;
       // this.entities[x].mesh.rotation.y = (Math.PI / 2) * xDir;
 
-      xPos -= (Math.random() * 3 + 5) * xDir;
+      xPos -= (Math.random() * 1.5 + 4.5) * xDir;
     }
   };
 

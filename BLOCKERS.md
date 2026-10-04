@@ -1,6 +1,10 @@
 # DASHCUP blockers and next actions
 Updated: 2026-10-02
 
+## Ad verification note — 2026-10-04
+- The supplied Hilltop VAST URL returned XML containing inline video creatives during the current check. ChickenDash now initializes playback from a user tap. Actual browser playback is not yet confirmed; a user/device/region may still receive no fill, and browser/ad-blocking policy can block the request. A VAST response alone does not prove an impression or revenue.
+- The existing Pages preview `https://codex-spawn-adfix.dashcup-9289.pages.dev` is not in the staging Worker CORS allowlist, so preview bootstrap fails. Its Arcade→Quests navigation stayed within DASHCUP and was not hijacked. Full authenticated/browser E2E remains unverified.
+
 ## Git
 - Work is in C:\Users\RYZEN V\Documents\ChatGPT\dashcup\dashcup-9289-main on codex/dashcup-rebuild, based on main 2a5222980662f416ce4ab064000878a56e26ed3e.
 - The existing `codex/dashcup-rebuild` branch tracks origin; report updates were pushed and the worktree was clean at final verification. Frontend/Worker checks pass; the canonical Bun audit reports 8 known advisories (7 high, 1 moderate).

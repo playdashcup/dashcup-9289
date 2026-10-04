@@ -3,40 +3,9 @@
 import { useEffect, useRef } from 'react'
 
 const BANNER_SCRIPT = 'https://peacefulbicycle.com/b/X.VosHdPGBla0/YTWzcP/KeVm/9YuxZKUKlfkaPUTWcd0wOAD/QBwxOpTCMqtMNczRQK4eN/DTA/5-Nvwi'
-const VIDEO_SLIDER_SCRIPT = 'https://peacefulbicycle.com/bnX/V/s/d.GxlH0uYnW/cE/ieLmy9/ulZsUKlYk/P_TDcT0WOiDnMm5/MTDbUyt/NYz/Qm4iM/z/krwyOYQO'
-const PUSH_AD_SCRIPT = '//peacefulbicycle.com/byXMVys.d/GOl/0GYDWHcZ/uedm-9FugZqU/lakHPuTEca0hOzDPYe3EMBDmkBtUN/zRQo4/Nrj/cuxWMIwh'
-
-export function HilltopPushAd() {
-  useEffect(() => {
-    if (document.getElementById('hilltop-push-ad-loader')) return
-
-    const loader = document.createElement('script')
-    loader.id = 'hilltop-push-ad-loader'
-    loader.referrerPolicy = 'no-referrer-when-downgrade'
-    loader.textContent = `(function(zkia){var d=document,s=d.createElement('script'),l=d.currentScript||d.scripts[d.scripts.length-1];s.settings=zkia||{};s.src=${JSON.stringify(PUSH_AD_SCRIPT)};s.async=true;s.referrerPolicy='no-referrer-when-downgrade';l.parentNode.insertBefore(s,l);})({})`
-    document.head.appendChild(loader)
-  }, [])
-
-  return null
-}
 
 export function HilltopBanner() {
   return <AdPlacement label="Advertisement" scriptUrl={BANNER_SCRIPT} className="min-h-28" />
-}
-
-export function HilltopVideoSlider() {
-  useEffect(() => {
-    if (document.getElementById('hilltop-video-slider-loader')) return
-
-    // Hilltop's MultiTag Video Slider is a page-level script, not an inline ad slot.
-    const loader = document.createElement('script')
-    loader.id = 'hilltop-video-slider-loader'
-    loader.referrerPolicy = 'no-referrer-when-downgrade'
-    loader.textContent = `(function(settings){var d=document,s=d.createElement('script'),l=d.currentScript||d.scripts[d.scripts.length-1];s.settings=settings||{};s.src=${JSON.stringify(VIDEO_SLIDER_SCRIPT)};s.async=true;s.referrerPolicy='no-referrer-when-downgrade';l.parentNode.insertBefore(s,l);})({})`
-    document.body.appendChild(loader)
-  }, [])
-
-  return null
 }
 
 function AdPlacement({ label, scriptUrl, className }: { label: string; scriptUrl: string; className: string }) {

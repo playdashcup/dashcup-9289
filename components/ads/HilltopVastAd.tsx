@@ -83,7 +83,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
   const managerRef = useRef<ImaManager | null>(null)
   const loaderRef = useRef<ImaLoader | null>(null)
   const managerInitializedRef = useRef(false)
-  const [status, setStatus] = useState<'loading' | 'playing' | 'tap' | 'error'>('loading')
+  const [status, setStatus] = useState<'loading' | 'ready' | 'playing' | 'error'>('loading')
   const [muted, setMuted] = useState(true)
 
   useEffect(() => {
@@ -125,20 +125,9 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
         })
         manager.addEventListener(ima.AdEvent.Type.CONTENT_RESUME_REQUESTED, finish)
         manager.addEventListener(ima.AdEvent.Type.ALL_ADS_COMPLETED, finish)
-        try {
-          if (!displayInitializedRef.current) {
-            display.initialize()
-            displayInitializedRef.current = true
-          }
-          manager.init(adContainerRef.current?.clientWidth || 640, adContainerRef.current?.clientHeight || 360, ima.ViewMode.NORMAL)
-          managerInitializedRef.current = true
-          manager.setVolume?.(muted ? 0 : 1)
-          manager.start()
-          if (!disposed) setStatus('playing')
-        } catch {
-          // Mobile browsers may require a fresh user gesture before ad playback.
-          if (!disposed) setStatus('tap')
-        }
+        // Wait for an explicit tap before initializing playback. Browsers often
+        // reject an ad start that follows an asynchronous VAST response.
+        if (!disposed) setStatus('ready')
       })
       const request = new ima.AdsRequest()
       request.adTagUrl = HILLTOP_VAST_TAG
@@ -146,7 +135,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       request.linearAdSlotHeight = adContainerRef.current.clientHeight || 360
       request.nonLinearAdSlotWidth = request.linearAdSlotWidth
       request.nonLinearAdSlotHeight = Math.round(request.linearAdSlotHeight / 3)
-      request.setAdWillAutoPlay?.(true)
+      request.setAdWillAutoPlay?.(false)
       request.setAdWillPlayMuted?.(muted)
       loader.requestAds(request)
     }).catch(() => { if (!disposed) setStatus('error') })
@@ -168,7 +157,7 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
   const startFromGesture = () => {
     const ima = window.google?.ima
     const manager = managerRef.current
-    if (!ima || !manager || !displayRef.current) return
+    if (!ima || !manager || !displayRef.current || !adContainerRef.current) return
     try {
       if (!displayInitializedRef.current) {
         displayRef.current.initialize()
@@ -195,16 +184,16 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       <video ref={videoRef} className="absolute inset-0 size-full bg-black object-contain" playsInline muted />
       <div ref={adContainerRef} className="absolute inset-0" />
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between bg-gradient-to-b from-black/75 to-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/80">
-        <span>{status === 'loading' ? 'Loading sponsor ad…' : status === 'playing' ? 'Sponsor message' : status === 'tap' ? 'Tap to play sponsor ad' : 'Ad unavailable'}</span>
+        <span>{status === 'loading' ? 'Loading sponsor ad…' : status === 'playing' ? 'Sponsor message' : status === 'ready' ? 'Sponsor break ready' : 'Ad unavailable'}</span>
         {status === 'playing' && <button type="button" onClick={toggleSound} className="pointer-events-auto rounded-lg bg-black/60 px-2 py-1 normal-case tracking-normal text-white">{muted ? 'Enable sound' : 'Mute'}</button>}
       </div>
-      {(status === 'loading' || status === 'tap' || status === 'error') && <div className="absolute inset-0 z-20 grid place-items-center bg-[#101633]/75 p-5 text-center backdrop-blur-sm">
+      {(status === 'loading' || status === 'ready' || status === 'error') && <div className="absolute inset-0 z-20 grid place-items-center bg-[#101633]/75 p-5 text-center backdrop-blur-sm">
         <div className="max-w-sm">
-          <p className="mb-2 text-lg font-black text-white">{status === 'loading' ? 'A quick sponsor break' : status === 'tap' ? 'Ready when you are' : 'No video ad available'}</p>
-          <p className="mb-4 text-sm text-indigo-100/80">{status === 'loading' ? 'Loading the Hilltop VAST video.' : status === 'tap' ? 'Your browser needs a tap to start video playback.' : 'You can keep playing DASHCUP.'}</p>
+          <p className="mb-2 text-lg font-black text-white">{status === 'loading' ? 'A quick sponsor break' : status === 'ready' ? 'Ready when you are' : 'No video ad available'}</p>
+          <p className="mb-4 text-sm text-indigo-100/80">{status === 'loading' ? 'Loading the Hilltop VAST video.' : status === 'ready' ? 'Tap to start the video ad.' : 'You can keep playing DASHCUP.'}</p>
           <div className="flex justify-center gap-3">
-            {status === 'tap' && <button type="button" onClick={startFromGesture} className="rounded-xl border-2 border-[#13213d] bg-gradient-to-b from-[#8af4ff] to-[#5ad8ef] px-5 py-2.5 font-black text-[#15203e] shadow-[0_4px_0_#328aa2]">Play ad</button>}
-            {(status === 'error' || status === 'tap') && <button type="button" onClick={onClose} className="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 font-bold text-white">Continue</button>}
+            {status === 'ready' && <button type="button" onClick={startFromGesture} className="rounded-xl border-2 border-[#13213d] bg-gradient-to-b from-[#8af4ff] to-[#5ad8ef] px-5 py-2.5 font-black text-[#15203e] shadow-[0_4px_0_#328aa2]">Play ad</button>}
+            {(status === 'error' || status === 'ready') && <button type="button" onClick={onClose} className="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 font-bold text-white">Continue</button>}
           </div>
         </div>
       </div>}

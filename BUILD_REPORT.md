@@ -258,3 +258,11 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 
 - Staging passed before promotion. The existing production Worker was updated without changing Worker count, Neon schema, or provider configuration. Active production version: `66400b8d-5a72-45cd-b087-a85778663d92` (100%). Production API health and the existing apex/www sites returned HTTP 200 after deployment.
 - Pages deployment `46478491-668f-4cb3-989b-409c45ee2d57` for commit `8b7470e` is Active on `codex/dashcup-rebuild`. Apex/www returned 200 and the published JS contains the new cycle-unlock/window/reset copy. Production bootstrap returned 200 with current-cycle score `0`, claim window open, deadline `2026-10-12T00:00:00Z`, and no Top-20 eligibility for the new test session.
+
+## Spawn and ad interaction update — 2026-10-04
+
+- Kept the existing Expo Crossy Road engine and row types. Dynamic river rows now spawn three logs with 4.5–6.0 unit gaps instead of randomly spawning two or three with 5–8 unit gaps, reducing long periods without a boardable log. No game API calls or database writes were added.
+- Removed the page-wide Hilltop push and MultiTag video-slider loaders. They were not confined to the labeled ad slot and could intercept unrelated navigation clicks. The existing Hilltop banner remains in its labeled Arcade-only placement below the game/referral panel.
+- Changed the existing Hilltop VAST player to wait for an explicit Play ad tap before initializing playback. A direct fetch of the supplied tag returned VAST XML containing inline video creatives at check time; live playback can still vary by device, geography, browser settings, and provider inventory.
+- Validation: frontend lint/build passed; Expo web export passed; Expo lint had 0 errors and 68 existing warnings. Staging Worker `dashcup-9289-staging`, version `a03d4e3a-0487-47a3-98ac-5d8043b4c2be`, returned 200 for `/api/health`, `/`, `/index.html`, and the new hashed Expo bundle. Staging and production Wrangler dry-runs passed.
+- Existing Pages project preview: https://codex-spawn-adfix.dashcup-9289.pages.dev. Browser navigation from Arcade to Quests stayed on the app. Preview bootstrap failed because the preview origin is outside the staging Worker CORS allowlist; this was not a staging or production browser E2E pass.
