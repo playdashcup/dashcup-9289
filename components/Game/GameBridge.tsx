@@ -4,11 +4,11 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import type { EndGameResponse, GameInputEvidence, StartGameResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { HilltopVastAd } from '@/components/ads/HilltopVastAd'
+import { loadHilltopRunAd } from '@/components/ads/hilltopRunAd'
 import { Gamepad2, Play, RotateCcw } from 'lucide-react'
 
 const GAME_ORIGIN = process.env.NEXT_PUBLIC_GAME_ORIGIN || (process.env.NODE_ENV === 'development' ? 'http://localhost:8787' : 'https://game.dashcup.com')
-const COMPLETED_RUNS_STORAGE_KEY = 'dashcup.hilltop-vast.completed-runs.v1'
+const COMPLETED_RUNS_STORAGE_KEY = 'dashcup.hilltop.completed-runs.v1'
 const CLIENT_SIGNAL_WEIGHTS: Record<string, number> = {
   input_burst: 24, score_velocity: 28, short_run_high_score: 24, movement_jump: 30,
   invalid_state_transition: 20, state_integrity: 30, focus_change: 2,
@@ -48,7 +48,6 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
   const [state, setState] = useState<GameState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ score: number; trophies: number } | null>(null)
-  const [vastAdAttempt, setVastAdAttempt] = useState<number | null>(null)
   const completedRunsRef = useRef(0)
   const runStartTimesRef = useRef<number[]>([])
   const pendingRunSignalsRef = useRef<Set<string>>(new Set())
@@ -66,7 +65,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
     const nextCount = Math.max(storedCount, completedRunsRef.current) + 1
     completedRunsRef.current = nextCount
     try { localStorage.setItem(COMPLETED_RUNS_STORAGE_KEY, String(nextCount)) } catch { /* The frequency counter is a non-authoritative ad preference. */ }
-    if (nextCount % 10 === 0) setVastAdAttempt(nextCount)
+    if (nextCount % 10 === 0) loadHilltopRunAd(nextCount)
   }
 
   const clearHandshake = () => {
@@ -216,7 +215,6 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
             {error && <p role="alert" className="mx-auto mt-4 max-w-sm rounded-xl border border-rose-300/30 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100">{error}</p>}
           </div>
         </div>}
-        {vastAdAttempt !== null && <HilltopVastAd key={vastAdAttempt} attempt={vastAdAttempt} onClose={() => setVastAdAttempt(null)} />}
       </div>
     </section>
   )
