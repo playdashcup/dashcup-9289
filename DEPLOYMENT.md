@@ -226,3 +226,10 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 - Existing Pages project `dashcup-9289` deployed `f71e48d5793c8233ed59e5139f43bc79fd66e7ae` as `520c3ed1-906b-4910-aaab-d92079264ec5`; the deployment completed and retains `https://dashcup.com` and `https://www.dashcup.com` aliases. Live www returned HTTP 200.
 - The commit after the initial publish removed the supplied ad script after a live browser showed fake Chrome security alerts. Final source has only a paused placement notice. Browser UI confirms that text, the new visible VAST action, and removal of the requested Rewards eligibility block.
 - A manual live VAST attempt returned “No video ad available”. Video playback cannot be claimed; Hilltop/provider must make a creative available. No Worker or Neon action occurred.
+
+### VAST cadence and Rewards label publish — 2026-10-04
+
+- Existing Pages project `dashcup-9289` deployed commit `b82c18c84830608271b2712f00c2dcbeced7e272` as `be3fec3a-814c-4c0f-b284-2677e5c5ec36`; the custom-domain aliases remain active.
+- Live UI confirms there is no standalone video-ad heading/schedule/button. The Rewards email helper text is “Email verification required to send the reward”.
+- After each 10 completed local runs, the current VAST flow requests muted-autoplay inventory and automatically starts its manager when loaded. A tap fallback remains for autoplay restrictions. No real ad playback was verified because the earlier browser request received no fill; ten production runs were not created for testing.
+- No Worker, API, game bundle, or Neon change. Frontend lint/build passed.

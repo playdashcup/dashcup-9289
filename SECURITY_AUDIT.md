@@ -182,3 +182,8 @@ Updated: 2026-10-02
 
 - The brief Pages deployment containing the supplied ad script was superseded with commit `f71e48d5793c8233ed59e5139f43bc79fd66e7ae`. Live browser state now shows only the paused banner message; the submitted remote code is absent from final source and build.
 - The VAST control was manually exercised. No ad filled, and no reward/quest state is tied to the ad. Production Worker and Neon were untouched.
+
+## Published VAST autoplay implementation — 2026-10-04
+
+- The existing every-ten-runs VAST trigger now requests autoplay-compatible muted inventory and starts the ad manager as soon as a manager/creative is available. Browser policy may reject autoplay and require a player tap. A prior live request received no fill, so actual play is not verified.
+- Removed the extra manual schedule/button and changed only informational Rewards email copy. Ad viewing continues to have no effect on points, quests, or redemption.

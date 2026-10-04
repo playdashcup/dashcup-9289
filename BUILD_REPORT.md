@@ -289,3 +289,10 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Manual VAST test reached the existing IMA player and ended with “No video ad available”. The provider must supply inventory/configuration; a visible button cannot create a creative.
 - Browser inspection of Rewards confirmed the “Not currently eligible”/closed-cycle rank card is gone. The separate cycle policy note and server-side reward eligibility controls remain.
 - `pnpm lint`, `pnpm build`, `git diff --check`, absence checks for the removed eligibility copy, and absence checks for the unsafe script passed. No Worker, API, Neon schema, or game bundle deployment was made.
+
+## Published VAST cadence and Rewards label — 2026-10-04
+
+- Commit `b82c18c84830608271b2712f00c2dcbeced7e272` is live on Pages deployment `be3fec3a-814c-4c0f-b284-2677e5c5ec36`; the existing apex/www aliases are active.
+- Live browser inspection confirms the separate VAST heading, schedule text, and manual ad button are gone. Rewards now visibly says “Email verification required to send the reward”.
+- The source keeps the every-10-completed-runs trigger and attempts muted IMA autoplay when a creative is available. The autoplay path was build/type-checked but not exercised by completing 10 production runs. The earlier manual live request returned no fill; no actual video playback is claimed.
+- `pnpm lint`, `pnpm build`, removed-copy checks, and the working tree passed. No Worker or Neon changes.

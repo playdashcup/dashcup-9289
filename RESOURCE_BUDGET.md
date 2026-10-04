@@ -177,3 +177,8 @@ Updated: 2026-10-02
 
 - The unsafe banner script is absent from the live deployment; the Arcade slot is static text and creates no provider load. The VAST button creates only the existing ad SDK/tag requests when clicked; manual verification received no fill. Neither path adds Worker calls or Neon traffic.
 - Existing game cadence still attempts VAST every ten completed runs, based on a local preference counter. This count grants no game/reward authority.
+
+## Published tenth-run autoplay attempt — 2026-10-04
+
+- The live frontend no longer displays a VAST schedule/card/button. VAST provider traffic remains limited to the existing ad request on every 10th completed run; there are no DASHCUP Worker calls, Neon queries, or DB writes added by autoplay logic.
+- Browser verification confirmed the Rewards email copy. No production runs were synthesized to test the tenth-run transition. Previous manual VAST request returned no fill.

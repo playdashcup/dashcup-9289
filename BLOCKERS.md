@@ -216,3 +216,8 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Resolved the unsafe-banner deployment quickly: final commit `f71e48d5793c8233ed59e5139f43bc79fd66e7ae` is deployed as Pages deployment `520c3ed1-906b-4910-aaab-d92079264ec5`; apex/www aliases are active.
 - Browser verification shows the eligibility/rank block removed, a visible VAST control, and a paused banner placeholder. A manual VAST request returned no video ad. Obtain a clean banner-only creative and provider-side VAST fill/configuration before ads can be active.
 - No Worker, database, or API blocker is implicated; frontend lint/build passed.
+
+## Published cadence/copy verification — 2026-10-04
+
+- Pages deployment `be3fec3a-814c-4c0f-b284-2677e5c5ec36` serves commit `b82c18c84830608271b2712f00c2dcbeced7e272` on the existing project. Browser accessibility confirms the extra schedule heading/manual video button are removed and the new Rewards email copy is live.
+- The code automatically attempts muted VAST playback after run 10. Full ten-run production playback was not simulated; the last direct ad request had no fill. Browser autoplay rules or provider availability can still prevent video playback.

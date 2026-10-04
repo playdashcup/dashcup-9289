@@ -165,3 +165,9 @@ Audit date: 2026-10-02
 - Pages now serves commit `f71e48d5793c8233ed59e5139f43bc79fd66e7ae` as deployment `520c3ed1-906b-4910-aaab-d92079264ec5`. The old `bd596bde6c25f4d6083509d5481593fbd1a11db5` deployment briefly contained the sandboxed external tag; it was superseded by the safety removal.
 - Live browser accessibility confirms the paused banner slot and VAST launch control. The ad tag was not used after the browser revealed its fake-warning creative. VAST returned no fill in the tested session.
 - Rewards page no longer renders the specific ineligible/rank card. Its other cycle timing/reset note remains.
+
+## Published VAST and Rewards UI verification — 2026-10-04
+
+- Pages deployment `be3fec3a-814c-4c0f-b284-2677e5c5ec36` serves source commit `b82c18c84830608271b2712f00c2dcbeced7e272`. Live browser state confirms the schedule card/button are absent and the requested email label is displayed.
+- The VAST manager now attempts muted autoplay at the existing every-ten-completed-runs trigger; it retains a tap fallback for browser policy. Provider no-fill prevents playback regardless of client behavior. No game/ad rewards are inferred from playback.
+- Local lint/build passed; no server-side authentication, reward, or provider callback logic changed.
