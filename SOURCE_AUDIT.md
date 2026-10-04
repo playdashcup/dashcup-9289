@@ -178,3 +178,10 @@ Audit date: 2026-10-02
 - Live browser verification: the Arcade banner slot visibly rendered a provider banner creative. The requested corner tag rendered a video creative on the initial load; on a later view the corner frame was blank, so its fill/playback is intermittent and controlled by Hilltop inventory. The corner iframe is now mounted on all dashboard tabs.
 - Both third-party tags run in separate sandboxed opaque-origin iframes (`allow-scripts allow-popups` only); no Worker/API request, Neon query, or DB write was added. The previously disabled push tag that showed fake browser-security warnings remains absent.
 - `pnpm lint`, `pnpm build`, and `git diff --check` passed before deployment. This was frontend-only; Worker and Neon were unchanged.
+
+## Replaced Hilltop run ad tag — 2026-10-04
+
+- Frontend commit `fe72d0edc66d235480c141eeffdf73abf5f73c3c` deployed successfully to existing Pages project `dashcup-9289` as `6045b21d-b456-458e-a822-0ae2704c7d2f`; aliases include `dashcup.com` and `www.dashcup.com`.
+- Removed the previous `second-director.com` VAST URL, Google IMA player, and custom full-game video overlay. Removed the prior fixed floating corner iframe. The supplied Hilltop tag is loaded from the page after every tenth completed local run, with a per-run duplicate guard; no extra API or database work was added.
+- Production browser check confirms the normal ChickenDash game and Arcade banner still render, with no fixed corner player at page load. Local lint/build and bundled-output checks pass; the supplied tag is present, while the previous VAST tag and “No video ad available” overlay are absent from the built frontend.
+- The new tag is an in-page placement script, not a VAST URL. Production playback/creative was not verified by completing ten games; delivery and format depend on Hilltop inventory. The external script runs in the site document and can manage its own placement, as requested.
