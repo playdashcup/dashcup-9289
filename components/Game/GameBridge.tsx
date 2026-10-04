@@ -1,10 +1,10 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import type { EndGameResponse, GameInputEvidence, StartGameResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { loadHilltopRunAd } from '@/components/ads/hilltopRunAd'
+import { HilltopVastBreak } from '@/components/ads/HilltopVastBreak'
 import { Gamepad2, Play, RotateCcw } from 'lucide-react'
 
 const GAME_ORIGIN = process.env.NEXT_PUBLIC_GAME_ORIGIN || (process.env.NODE_ENV === 'development' ? 'http://localhost:8787' : 'https://game.dashcup.com')
@@ -48,6 +48,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
   const [state, setState] = useState<GameState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ score: number; trophies: number } | null>(null)
+  const [vastAdAttempt, setVastAdAttempt] = useState<number | null>(null)
   const completedRunsRef = useRef(0)
   const runStartTimesRef = useRef<number[]>([])
   const pendingRunSignalsRef = useRef<Set<string>>(new Set())
@@ -65,8 +66,10 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
     const nextCount = Math.max(storedCount, completedRunsRef.current) + 1
     completedRunsRef.current = nextCount
     try { localStorage.setItem(COMPLETED_RUNS_STORAGE_KEY, String(nextCount)) } catch { /* The frequency counter is a non-authoritative ad preference. */ }
-    if (nextCount % 10 === 0) loadHilltopRunAd(nextCount)
+    if (nextCount % 10 === 0) setVastAdAttempt(nextCount)
   }
+
+  const closeVastAd = useCallback(() => setVastAdAttempt(null), [])
 
   const clearHandshake = () => {
     if (startTimerRef.current) clearTimeout(startTimerRef.current)
@@ -215,6 +218,7 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
             {error && <p role="alert" className="mx-auto mt-4 max-w-sm rounded-xl border border-rose-300/30 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100">{error}</p>}
           </div>
         </div>}
+        {vastAdAttempt !== null && <HilltopVastBreak key={vastAdAttempt} onClose={closeVastAd} />}
       </div>
     </section>
   )
