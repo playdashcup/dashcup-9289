@@ -207,4 +207,4 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 ### Production promotion — 2026-10-04
 
 - After the staging end-to-end check passed, deployed to the existing production Worker `dashcup-9289`, active version `66400b8d-5a72-45cd-b087-a85778663d92` (100%). Production API health, apex, and www returned HTTP 200 after deployment. No Neon migration or Pages project replacement was done.
-- The Rewards interface copy is published via the existing Pages project's Git-connected production branch; verify its deployment after pushing this implementation.
+- The Rewards copy is live through existing Pages deployment `46478491-668f-4cb3-989b-409c45ee2d57` for commit `8b7470e` (Active). Apex/www returned 200 and the published JS contains the updated text. Production bootstrap returned 200 with cycle `2026-09-28`, current-cycle trophies `0` for a new session, and deadline `2026-10-12T00:00:00Z`.

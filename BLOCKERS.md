@@ -194,4 +194,4 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 ### Production promotion — 2026-10-04
 
 - The existing Worker was promoted after staging validation; production version `66400b8d-5a72-45cd-b087-a85778663d92` is active at 100%. API health and both apex/www returned HTTP 200. No database migration or infrastructure change was needed.
-- Pages needs the source commit pushed to its existing Git-connected branch before the Rewards copy can be confirmed live. No other external blocker is identified for this cycle/reward change.
+- The existing Pages project is live on deployment `46478491-668f-4cb3-989b-409c45ee2d57` for commit `8b7470e`; the published JS contains the Rewards copy and apex/www return 200. No external blocker remains for this cycle/reward change.
