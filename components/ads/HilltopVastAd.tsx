@@ -74,7 +74,7 @@ function loadImaSdk(): Promise<ImaApi> {
   return sdkPromise ?? Promise.reject(new Error('IMA SDK initialization failed'))
 }
 
-/** Plays the Hilltop VAST break requested from the Arcade or run-completion flow. */
+/** Automatically attempts a muted Hilltop VAST break after each 10 completed runs. */
 export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const adContainerRef = useRef<HTMLDivElement>(null)
@@ -124,9 +124,11 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       loaderRef.current = loader
       loader.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, reportAdError)
       loader.addEventListener(ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED, (event) => {
-        if (disposed || !videoRef.current) return
+        const video = videoRef.current
+        const adContainer = adContainerRef.current
+        if (disposed || !video || !adContainer) return
         clearTimeouts()
-        const manager = event.getAdsManager(videoRef.current, new ima.AdsRenderingSettings())
+        const manager = event.getAdsManager(video, new ima.AdsRenderingSettings())
         managerRef.current = manager
         manager.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, reportAdError)
         manager.addEventListener(ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED, () => {
@@ -136,9 +138,30 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
         })
         manager.addEventListener(ima.AdEvent.Type.CONTENT_RESUME_REQUESTED, finish)
         manager.addEventListener(ima.AdEvent.Type.ALL_ADS_COMPLETED, finish)
-        // Wait for an explicit tap before initializing playback. Browsers often
-        // reject an ad start that follows an asynchronous VAST response.
-        if (!disposed) setStatus('ready')
+        // Attempt muted playback immediately on the tenth-run break. Browser
+        // autoplay rules may reject initialization; in that case retain a tap
+        // fallback rather than blocking the player behind a nonfunctional ad.
+        if (!disposed) {
+          try {
+            display.initialize()
+            displayInitializedRef.current = true
+            manager.init(adContainer.clientWidth || 640, adContainer.clientHeight || 360, ima.ViewMode.NORMAL)
+            managerInitializedRef.current = true
+            manager.setVolume?.(0)
+            setStatus('starting')
+            timeoutRef.current = window.setTimeout(() => {
+              managerRef.current?.destroy()
+              managerRef.current = null
+              loaderRef.current?.destroy()
+              loaderRef.current = null
+              if (!disposed) setStatus('error')
+            }, 12_000)
+            manager.start()
+          } catch {
+            clearTimeouts()
+            if (!disposed) setStatus('ready')
+          }
+        }
       })
       const request = new ima.AdsRequest()
       request.adTagUrl = HILLTOP_VAST_TAG
@@ -146,8 +169,8 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       request.linearAdSlotHeight = adContainerRef.current.clientHeight || 360
       request.nonLinearAdSlotWidth = request.linearAdSlotWidth
       request.nonLinearAdSlotHeight = Math.round(request.linearAdSlotHeight / 3)
-      request.setAdWillAutoPlay?.(false)
-      request.setAdWillPlayMuted?.(muted)
+      request.setAdWillAutoPlay?.(true)
+      request.setAdWillPlayMuted?.(true)
       loader.requestAds(request)
     }).catch(() => { if (!disposed) setStatus('error') })
 
@@ -212,8 +235,8 @@ export function HilltopVastAd({ attempt, onClose }: { attempt: number; onClose: 
       </div>
       {(status === 'loading' || status === 'ready' || status === 'starting' || status === 'error') && <div className="absolute inset-0 z-20 grid place-items-center bg-[#101633]/75 p-5 text-center backdrop-blur-sm">
         <div className="max-w-sm">
-          <p className="mb-2 text-lg font-black text-white">{status === 'loading' || status === 'starting' ? 'A quick sponsor break' : status === 'ready' ? 'Ready when you are' : 'No video ad available'}</p>
-          <p className="mb-4 text-sm text-indigo-100/80">{status === 'loading' ? 'Loading the Hilltop VAST video.' : status === 'starting' ? 'Starting video playback…' : status === 'ready' ? 'Tap to start the video ad.' : 'You can keep playing DASHCUP.'}</p>
+          <p className="mb-2 text-lg font-black text-white">{status === 'loading' || status === 'starting' ? 'Sponsor break' : status === 'ready' ? 'Tap to start the sponsor video' : 'No video ad available'}</p>
+          <p className="mb-4 text-sm text-indigo-100/80">{status === 'loading' ? 'Loading the video ad.' : status === 'starting' ? 'Trying muted playback…' : status === 'ready' ? 'Your browser requires a tap to play this video.' : 'You can keep playing DASHCUP.'}</p>
           <div className="flex justify-center gap-3">
             {status === 'ready' && <button type="button" onClick={startFromGesture} className="rounded-xl border-2 border-[#13213d] bg-gradient-to-b from-[#8af4ff] to-[#5ad8ef] px-5 py-2.5 font-black text-[#15203e] shadow-[0_4px_0_#328aa2]">Play ad</button>}
             {(status === 'error' || status === 'ready' || status === 'starting') && <button type="button" onClick={onClose} className="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 font-bold text-white">Continue</button>}

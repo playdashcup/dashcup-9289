@@ -218,7 +218,7 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 
 - Removed the Rewards eligibility/rank card from frontend source. Server-controlled redemption eligibility and timing remain enforced by the existing API.
 - Initially isolated the supplied `peacefulbicycle.com` script in an Arcade-only sandboxed iframe, then removed it after live browser inspection showed it injecting repeated fake “Google Chrome” security warnings. The Arcade now shows a paused placement notice; do not re-enable this tag. Request a clean banner-only creative from the provider.
-- Added a visible VAST 3.0 “Play video ad” control under ChickenDash; it opens the existing player and does not call the DASHCUP API or Neon. Automatic ad pacing remains every 10 completed local runs. Playback requires a gesture and a no-fill response is possible.
+- Removed the extra VAST schedule card and manual “Play video ad” control. The existing player opens automatically after every 10 completed local runs and now attempts muted autoplay. If browser policy blocks it, a tap fallback remains. Provider no-fill is possible; no DASHCUP API or Neon call was added.
 - After removing the unsafe loader, frontend lint, static production build, and `git diff --check` passed; built output contains neither the removed eligibility copy nor the unsafe ad URL. Commit `bd596bde6c25f4d6083509d5481593fbd1a11db5` is live as Pages deployment `13fea7c6-5c6f-484c-a16d-301c801599dd`, but it still has the unsafe ad loader and will be superseded after the fix is pushed. Browser test of the visible VAST control returned “No video ad available”. No Worker deployment, API endpoint, migration, or database change is part of this update.
 
 ### Final Arcade/Rewards publish — 2026-10-04

@@ -279,7 +279,7 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 
 - Removed the reward eligibility/rank notice that showed “Not currently eligible”, “Closed-cycle rank”, and the previous cycle Top-20 claim message. Claim controls remain guarded by server-provided eligibility/window state.
 - A live browser check showed the supplied Hilltop push-style tag rendering repeated fake “Google Chrome” security warnings inside its iframe. Removed the tag immediately; the Arcade now displays a paused banner slot and does not execute that provider script.
-- Added a visible Hilltop Video Ad 3.0 entry in the ChickenDash panel. Players can request the VAST player manually for visibility/testing; the existing automatic break remains every 10 completed local runs. Playback needs a player tap and available provider inventory. The local pacing count is not reward authority.
+- Removed the extra Hilltop Video Ad 3.0 schedule card and manual launch button. Every 10th completed local run automatically opens the existing VAST flow and attempts muted playback; a tap fallback remains only if autoplay is blocked. Provider no-fill still prevents playback, and local pacing is not reward authority.
 - Commit `bd596bde6c25f4d6083509d5481593fbd1a11db5` deployed to existing Pages as `13fea7c6-5c6f-484c-a16d-301c801599dd`; it contains the initial sandbox attempt and must be superseded by the follow-up removal commit. The manual VAST request was browser-tested and returned “No video ad available”. Frontend lint/build passed; no Worker, API, Neon, or game bundle change was made.
 
 ## Final live verification — 2026-10-04

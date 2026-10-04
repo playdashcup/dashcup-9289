@@ -207,7 +207,7 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 
 ## Current Arcade ad publication status — 2026-10-04
 
-- The Rewards eligibility/rank notice is removed and the VAST player control is visible on the live Arcade page. A direct browser test of the VAST player ended in “No video ad available”; provider-side inventory/tag configuration must be corrected before video can play.
+- The Rewards eligibility/rank notice is removed. VAST is triggered automatically every 10 completed runs and attempts muted playback; the previous browser test ended in “No video ad available”, so provider-side inventory/tag configuration must be corrected before a video can play.
 - The submitted banner/push script was tested on the live page and rendered many fake “Google Chrome” security-warning panels. It has been removed from source; a visible paused-placement notice replaces it. Do not restore this tag. A clean banner-only creative is needed from the ad provider.
 - The removal is committed locally as a follow-up to `bd596bde6c25f4d6083509d5481593fbd1a11db5`; Pages currently still runs that earlier deployment until the follow-up is pushed and published. No Worker/database/API blocker is implicated.
 

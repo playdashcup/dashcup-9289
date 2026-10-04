@@ -170,7 +170,7 @@ Updated: 2026-10-02
 ## Arcade ad slot restoration — 2026-10-04
 
 - The supplied ad script was loaded in an Arcade-only iframe, then removed after browser verification showed it creating fake security-warning content. The current source uses a local paused-placement message and makes no banner-provider request.
-- The VAST player is requested at each 10th completed run and can also be opened from the visible ChickenDash video-ad control. It issues only the existing third-party VAST/IMA requests, never gameplay API traffic. A live manual test produced no fill. Ad state does not affect rewards.
+- The VAST player is requested at each 10th completed run, without a separate schedule card or manual launch control. It issues only the existing third-party VAST/IMA requests, never gameplay API traffic. Autoplay is attempted muted; browser restrictions may require a tap fallback. The prior live test produced no fill. Ad state does not affect rewards.
 - The local run counter controls ad pacing only. Browser storage is not used for identity, score, trophies, quest progress, or redemption.
 
 ## Final Arcade ad verification — 2026-10-04

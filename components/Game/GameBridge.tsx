@@ -191,10 +191,6 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
     } catch (cause) { clearHandshake(); setError(cause instanceof Error ? cause.message : 'Could not start a run'); setState('error') }
   }
 
-  const requestVastAd = () => {
-    setVastAdAttempt((attempt) => (attempt ?? 0) + 1)
-  }
-
   return (
     <section className="min-w-0 overflow-hidden rounded-[2rem] border-[3px] border-[#78eaff] bg-gradient-to-br from-[#252b59] via-[#171c43] to-[#292052] shadow-[0_12px_0_#090d22,0_24px_55px_rgba(4,7,24,.45)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-white/10 bg-white/[0.045] px-4 py-3 sm:px-5 sm:py-4">
@@ -221,13 +217,6 @@ export function GameBridge({ onComplete }: { onComplete: (result: EndGameRespons
           </div>
         </div>}
         {vastAdAttempt !== null && <HilltopVastAd key={vastAdAttempt} attempt={vastAdAttempt} onClose={() => setVastAdAttempt(null)} />}
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#111633]/70 px-4 py-3 sm:px-5">
-        <div>
-          <p className="text-sm font-black text-white">Hilltop Video Ad 3.0</p>
-          <p className="mt-0.5 text-xs text-indigo-100/60">Video break after every 10 completed runs</p>
-        </div>
-        <button type="button" onClick={requestVastAd} disabled={vastAdAttempt !== null || state === 'starting' || state === 'playing' || state === 'finishing'} className="rounded-xl border-2 border-[#13213d] bg-gradient-to-b from-[#8af4ff] to-[#5ad8ef] px-4 py-2 text-xs font-black text-[#15203e] shadow-[0_4px_0_#328aa2] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">{vastAdAttempt !== null ? 'Ad open' : 'Play video ad'}</button>
       </div>
     </section>
   )
