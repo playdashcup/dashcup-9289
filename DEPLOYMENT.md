@@ -264,3 +264,8 @@ ot_started, sending capability enabled) and does not list mail.dashcup.com. No d
 
 - The user-provided `(2)` VAST file matches the existing VAST URL. Its endpoint returned valid VAST 3.0 XML at check time; playback still requires browser-side validation. Local IMA now waits for the ad manager and presents a direct Play video ad action, required for user-gesture initialization on mobile browsers.
 - Frontend lint/build passed. Pages deployment is pending; no Worker/API or Neon deployment was performed for this change.
+## Worker optimization promotion notes — 2026-10-05
+
+Staging Worker version `6664503c-7a54-4992-8a9f-9023611773df` serves the root/game shell from static assets and provides signed direct CPAlead tracking URLs in the existing `/api/bootstrap` response when the optional `CPALEAD_ATTRIBUTION_KEY` secret is present. Staging smoke checks passed for static root and game JS, database-backed health/bootstrap, exact-origin CORS allow/deny, CSRF rejection/acceptance, game start/end, and sponsor tracking URL presence. No real CPAlead lead callback or real browser E2E was performed.
+
+Production remains on existing Worker version `d6a4e156-901e-44b0-bff4-b65cb48cd375`; it has not been changed. Before promoting this optimization, set `CPALEAD_ATTRIBUTION_KEY` on the existing production Worker and add an exact `admin.dashcup.com/` to `/admin/` redirect to the existing `dashcup.com` zone redirect ruleset. The Worker asset configuration then routes only `/api/*` and `/admin*` through Worker code. Do not create another zone, Pages project, Worker, or redirect ruleset. Pages source changes must be promoted through the existing `codex/dashcup-rebuild` Pages deployment path.

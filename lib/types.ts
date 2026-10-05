@@ -46,6 +46,7 @@ export interface SponsorOffer {
   action: string
   type: 'CPA' | 'CPI' | 'PPI'
   rank: number
+  trackingUrl?: string
 }
 
 export interface MeResponse {

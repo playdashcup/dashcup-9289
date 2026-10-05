@@ -74,6 +74,13 @@ export function isAllowedSponsorTarget(campaignId: string, country: string): boo
   return Boolean(rule && rule.countries.includes(country.toUpperCase()))
 }
 
+export function isAllowedSponsorAttribution(campaignId: string, country: string, device: SponsorDevice): boolean {
+  const rule = SPONSOR_CAMPAIGNS[campaignId]
+  const deviceAllowed = rule?.devices.includes(device)
+    || Boolean(rule?.devices.includes('mobile') && (device === 'ios' || device === 'android'))
+  return Boolean(rule && rule.countries.includes(country.toUpperCase()) && deviceAllowed)
+}
+
 export function appendSponsorSubid(trackingUrl: string, publisherId: string, offerId: string, subid: string): string | null {
   try {
     const url = new URL(trackingUrl)

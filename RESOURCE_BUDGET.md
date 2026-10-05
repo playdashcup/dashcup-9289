@@ -211,3 +211,20 @@ Updated: 2026-10-02
 ## VAST playback adjustment — 2026-10-04
 
 - The existing one request per tenth completed run is unchanged. IMA initialization now waits for the player gesture; no additional API, Worker, Neon, or database work was introduced.
+## Further Worker optimization — staging verified, production not promoted (2026-10-05)
+
+Request-count comparison for the optimized paths (architecture-derived counts, not a load-test estimate):
+
+| User action | Before | Staging implementation | Change |
+| --- | ---: | ---: | ---: |
+| Open site plus game shell | 2 Worker requests (bootstrap + Worker-first game root) | 1 (bootstrap; game shell and assets served as static assets) | -1 per initial visit |
+| One game run | 2 Worker requests / 2 Neon statements | 2 / 2 | unchanged; one start and one bounded end remain necessary |
+| 100 game runs | 200 Worker requests / 200 Neon statements | 200 / 200 | unchanged; batching was rejected because it weakens the one-time run token and per-run validation model |
+| Sponsor click | 1 Worker request / 1 Neon insert | 0 / 0 with a valid signed direct tracking URL; legacy endpoint remains fallback when key is absent | -1 request and write per click when enabled |
+| Provider callback | 1 Worker request / 1 Neon statement | 1 / 1 | unchanged; callback must be authenticated and idempotently recorded |
+| Quest claim | 1 Worker request / 1 Neon statement | 1 / 1 | unchanged; server-authoritative atomic claim retained |
+| Active gameplay | 0 | 0 | unchanged; no per-frame or per-input network traffic |
+
+The site itself is served by Pages; the table counts Worker traffic only. Request counts are per action and do not predict ad-provider traffic or include browser cache behavior. No DAU load test was run.
+
+Staging-only implementation: static-first Worker asset routing for the root/game shell, plus an AES-GCM encrypted and HMAC-authenticated expiring CPAlead attribution token embedded into the already-existing bootstrap response. No extra bootstrap request, Neon query/write, migration, or service was added. `CPALEAD_ATTRIBUTION_KEY` is configured in the staging Worker; production is not configured or promoted yet. The old server-recorded click flow remains available when that optional secret is absent.

@@ -251,3 +251,9 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 ## Hilltop VAST playback verification — 2026-10-04
 
 - The supplied VAST endpoint currently returns parseable VAST 3.0 with video media, but a successful XML response is not proof that a specific browser can play the ad. The updated local IMA flow requires the player to tap Play video ad after the manager loads; browser playback and provider fill remain unverified until deployment and a real user-facing test.
+## Further Worker optimization status — 2026-10-05
+
+- Staging optimization is deployed and smoke-checked (Worker version `6664503c-7a54-4992-8a9f-9023611773df`). Production remains untouched on Worker version `d6a4e156-901e-44b0-bff4-b65cb48cd375`.
+- Before production promotion: configure `CPALEAD_ATTRIBUTION_KEY` as a production Worker secret, and add the `/` to `/admin/` redirect for `admin.dashcup.com` to the existing zone redirect ruleset. Then promote through the existing Pages/Worker resources. No production action was taken in this pass.
+- An actual CPAlead conversion callback and browser E2E have not been exercised; staging tests cover token cryptography, expiry/tampering and campaign/country/device binding, not provider acceptance.
+- Source edits and reports remain local and uncommitted/unpushed; pushing the connected Pages branch could publish the frontend, so production remains unchanged pending review of the measured request comparison.

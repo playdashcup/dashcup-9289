@@ -218,3 +218,9 @@ Updated: 2026-10-02
 ## IMA user-gesture playback — 2026-10-04
 
 - The VAST manager now starts only from the explicit Play video ad click, so IMA initialization is user-gesture-bound. It remains muted and does not grant trophies, quest progress, or other rewards. The provider endpoint is remote and its availability/content is not controlled by DASHCUP.
+## Sponsor attribution optimization — staging review (2026-10-05)
+
+- Direct sponsor links use an expiring token encrypted with AES-256-GCM and separately authenticated with HMAC-SHA256. The subscriber UUID is encrypted and is not exposed in the URL; claims bind the token to campaign, country, device, event type, and expiry. Tokens are capped to a small bounded campaign list and a 512-character maximum.
+- The optional signing key is a Worker secret (`CPALEAD_ATTRIBUTION_KEY`), not frontend code/config. It is configured only in staging. If absent, bootstrap keeps the existing click endpoint flow; no unverified fallback is treated as a completed conversion.
+- Unit coverage checks valid decode, user-ID concealment, wrong key, tampering, expiry, malformed token, and country/device/campaign mismatch. Duplicate provider conversion handling remains on the existing idempotent callback path.
+- Production is not promoted; production secret and existing-zone admin redirect are still prerequisites. No real CPAlead callback was run in this pass.

@@ -7,10 +7,12 @@ import { constantTimeStringEqual } from './security/timing-safe'
 import { rewardEmailTemplate, rewardEmailVerificationTemplate } from './email/reward-template'
 import { sendRewardEmail } from './email/resend'
 import { renderAdminPortal } from './admin/portal'
+import { isAdminPortalRequest } from './admin/request-routing'
 import { verifyAdminCredentials } from './security/admin-auth'
 import { isExpensiveMutation, isRateLimited, rateLimitKey } from './security/rate-limit'
 import { BIWEEKLY_CYCLE_MS, biweeklyId, dayId, MAX_INPUTS, MAX_RUN_MS, QUESTS, randomDisplayName, rewardClaimWindow, sanitizeClientSignals, validateEvidence, weekId } from './domain'
-import { appendSponsorSubid, detectSponsorDevice, filterSponsorOffers, isAllowedSponsorTarget, isValidSponsorPostbackId, SPONSOR_CAMPAIGNS, type CpaleadOffer, type SponsorOffer } from './sponsor-offers'
+import { appendSponsorSubid, detectSponsorDevice, filterSponsorOffers, isAllowedSponsorAttribution, isAllowedSponsorTarget, isValidSponsorPostbackId, SPONSOR_CAMPAIGNS, type CpaleadOffer, type SponsorOffer } from './sponsor-offers'
+import { createSponsorAttributionToken, verifySponsorAttributionToken } from './sponsor-attribution'
 
 interface Env {
   DATABASE_URL?: string
@@ -30,6 +32,7 @@ interface Env {
   RESEND_WEBHOOK_SECRET?: string
   CPALEAD_PUBLISHER_ID?: string
   CPALEAD_POSTBACK_PASSWORD?: string
+  CPALEAD_ATTRIBUTION_KEY?: string
 }
 
 type Variables = { userId: string; sessionId: string; csrfHash: string }
@@ -45,6 +48,16 @@ const CPALEAD_FEED_TTL_MS = 10 * 60 * 1_000
 const CPALEAD_FEED_CACHE_KEY = 'https://dashcup-cache.invalid/cpalead/publisher-offers-v1'
 let cpaleadFeedMemory: { publisherId: string; offers: CpaleadOffer[]; expiresAt: number; staleUntil: number } | undefined
 let cpaleadFeedRequest: Promise<CpaleadOffer[]> | undefined
+let allowedOriginsSource: string | undefined
+let allowedOrigins = new Set<string>()
+
+function isAllowedOrigin(origin: string, configuredOrigins: string) {
+  if (configuredOrigins !== allowedOriginsSource) {
+    allowedOriginsSource = configuredOrigins
+    allowedOrigins = new Set(configuredOrigins.split(',').map((entry) => entry.trim()).filter(Boolean))
+  }
+  return allowedOrigins.has(origin)
+}
 
 async function cpaleadOffers(env: Env): Promise<CpaleadOffer[]> {
   const publisherId = env.CPALEAD_PUBLISHER_ID?.trim() ?? ''
@@ -93,13 +106,29 @@ async function cpaleadOffers(env: Env): Promise<CpaleadOffer[]> {
   return cpaleadFeedRequest
 }
 
-async function eligibleSponsorOffers(c: AppContext): Promise<SponsorOffer[]> {
-  if (!c.env.CPALEAD_PUBLISHER_ID || !c.env.CPALEAD_POSTBACK_PASSWORD) return []
+async function eligibleSponsorOffers(c: AppContext, userId?: string): Promise<SponsorOffer[]> {
+  const publisherId = c.env.CPALEAD_PUBLISHER_ID?.trim() ?? ''
+  if (!publisherId || !c.env.CPALEAD_POSTBACK_PASSWORD) return []
   const cf = (c.req.raw as Request & { cf?: { country?: string } }).cf
-  const country = cf?.country ?? ''
+  const country = (cf?.country ?? '').toUpperCase()
   const device = detectSponsorDevice(c.req.header('user-agent') ?? '', c.req.header('sec-ch-ua-mobile'))
   const offers = await cpaleadOffers(c.env)
-  return filterSponsorOffers(offers, country, device)
+  const eligible = filterSponsorOffers(offers, country, device)
+  if (!userId || !c.env.CPALEAD_ATTRIBUTION_KEY) return eligible
+  const feedById = new Map(offers.map((offer) => [String(offer.id), offer]))
+  const linkable = eligible.filter((offer) => {
+    const source = feedById.get(offer.id)
+    return typeof source?.link === 'string' && appendSponsorSubid(source.link, publisherId, offer.id, 'validation') !== null
+  })
+  if (linkable.length === 0) return eligible
+  const campaigns = Object.fromEntries(linkable.map((offer) => [offer.id, offer.type.toLowerCase() as 'cpa' | 'cpi' | 'ppi']))
+  const subid = await createSponsorAttributionToken({ userId, country, device, campaigns }, c.env.CPALEAD_ATTRIBUTION_KEY)
+  if (!subid) return eligible
+  return eligible.map((offer) => {
+    const source = feedById.get(offer.id)
+    const trackingUrl = typeof source?.link === 'string' ? appendSponsorSubid(source.link, publisherId, offer.id, subid) : null
+    return trackingUrl ? { ...offer, trackingUrl } : offer
+  })
 }
 
 function serializedQuest(row: { id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }, offers: SponsorOffer[] = []) {
@@ -149,8 +178,7 @@ async function verifyResendSignature(secret: string, eventId: string, timestamp:
 
 app.use('/api/*', async (c, next) => {
   const origin = c.req.header('Origin')
-  const allowed = new Set((c.env.ALLOWED_ORIGINS ?? '').split(',').map((entry) => entry.trim()).filter(Boolean))
-  if (origin && !allowed.has(origin)) return c.json({ error: 'Origin is not allowed', code: 'ORIGIN_DENIED' }, 403)
+  if (origin && !isAllowedOrigin(origin, c.env.ALLOWED_ORIGINS ?? '')) return c.json({ error: 'Origin is not allowed', code: 'ORIGIN_DENIED' }, 403)
   if (origin) {
     c.header('Access-Control-Allow-Origin', origin)
     c.header('Access-Control-Allow-Credentials', 'true')
@@ -284,7 +312,7 @@ app.get('/api/bootstrap', async (c) => {
   const user = snapshot
   if (!user) return c.json({ error: 'Session user unavailable', code: 'SESSION_INVALID' }, 401)
   const quests = snapshot.quests as Array<{ id: string; type: string; period: string; target: number; progress: number; reward: number; completed: boolean; claimed: boolean }>
-  const sponsorOffers = await eligibleSponsorOffers(c)
+  const sponsorOffers = await eligibleSponsorOffers(c, activeSession.user_id)
   const [leaderboardSnapshot] = await sql`WITH ranked AS (
       SELECT cs.cycle_id,row_number() OVER (PARTITION BY cs.cycle_id ORDER BY cs.trophies DESC,cs.user_id)::integer AS rank,
         u.display_name AS name,cs.trophies,cs.user_id,(cs.user_id=${activeSession.user_id}) AS is_current_user
@@ -677,20 +705,33 @@ app.get('/webhooks/cpalead', async (c) => {
   const { subid = '', lead_id: leadId = '', campaign_id: campaignId = '', country_iso: country = '', password = '' } = c.req.query()
   if (c.req.url.length > 2_048 || !(await constantTimeStringEqual(password, c.env.CPALEAD_POSTBACK_PASSWORD))) return c.text('Invalid postback', 403)
   const normalizedCountry = country.toUpperCase()
-  if (!isValidSponsorPostbackId(subid) || !/^\d{1,20}$/.test(leadId) || !/^\d{1,16}$/.test(campaignId)
+  const legacyClickId = isValidSponsorPostbackId(subid)
+  const attribution = legacyClickId || !c.env.CPALEAD_ATTRIBUTION_KEY
+    ? null
+    : await verifySponsorAttributionToken(subid, c.env.CPALEAD_ATTRIBUTION_KEY)
+  const attributedEventType = attribution?.campaigns[campaignId] ?? null
+  const attributionAllowed = Boolean(attribution && attribution.country === normalizedCountry
+    && isAllowedSponsorAttribution(campaignId, normalizedCountry, attribution.device))
+  if ((!legacyClickId && !attribution) || attribution && (!attributionAllowed || !attributedEventType)
+    || !/^\d{1,20}$/.test(leadId) || !/^\d{1,16}$/.test(campaignId)
     || !SPONSOR_CAMPAIGNS[campaignId] || !/^[A-Z]{2}$/.test(normalizedCountry)
     || !isAllowedSponsorTarget(campaignId, normalizedCountry)) return c.text('Invalid postback', 400)
 
   const now = new Date()
   const dailyId = dayId(now)
   const weeklyId = weekId(now)
+  const attributedUserId = attribution?.userId ?? null
   const [result] = await sqlFor(c.env)`WITH click AS MATERIALIZED (
+      SELECT user_id,event_type FROM (
       SELECT user_id,provider_metadata->>'event_type' AS event_type
       FROM mylead_clicks
-      WHERE click_id=${subid} AND provider_metadata->>'provider'='cpalead'
+      WHERE ${legacyClickId} AND click_id=${subid} AND provider_metadata->>'provider'='cpalead'
         AND provider_metadata->>'campaign_id'=${campaignId}
         AND created_at > now()-interval '30 days'
-      LIMIT 1
+      UNION ALL
+      SELECT u.id,${attributedEventType}::text
+      FROM users u WHERE ${attributedUserId}::uuid IS NOT NULL AND u.id=${attributedUserId}::uuid AND u.disabled_at IS NULL
+      ) candidates LIMIT 1
     ), conversion AS (
       INSERT INTO provider_conversions(provider,transaction_id,user_id,event_type,status,reward_metadata)
       SELECT 'cpalead',${leadId},click.user_id,click.event_type,'verified',
@@ -1133,7 +1174,7 @@ app.post('/api/anti-cheat/report', async (c) => {
 app.all('*', async (c) => {
   if (c.req.path.startsWith('/api/')) return c.json({ error: 'Route not found', code: 'NOT_FOUND' }, 404)
   if (new URL(c.req.url).hostname === 'admin.dashcup.com') {
-    if (c.req.method !== 'GET' || (c.req.path !== '/' && c.req.path !== '/index.html')) return c.text('Not found', 404)
+    if (!isAdminPortalRequest(new URL(c.req.url).hostname, c.req.method, c.req.path)) return c.text('Not found', 404)
     const nonce = randomToken(18)
     c.header('Cache-Control', 'no-store')
     c.header('X-Robots-Tag', 'noindex, nofollow, noarchive')
