@@ -335,3 +335,12 @@ The Pages production build and `www.dashcup.com` are available and verified. The
 - Worker tests: 28/28; Worker typecheck, frontend lint/build, staging and production Wrangler dry-runs passed. These are local validation results; no full browser E2E or real CPAlead conversion was run.
 - Static shell routing removes the Worker from root/game-shell fetches. Sponsor clicks can skip the Worker and Neon click insert only when signed attribution is configured; one start plus one end request per game is intentionally unchanged. See `RESOURCE_BUDGET.md` for the per-action comparison.
 - No Pages publish, commit, push, production Worker deploy, production secret change, database migration, or zone redirect mutation was performed in this pass.
+
+## Production promotion completed — 2026-10-05 (supersedes the staging-only status above)
+
+- Commit `34f2ae8437ec490b6d27152e6b93b1595ae4a400` is pushed to `origin/codex/dashcup-rebuild`.
+- Existing Pages project `dashcup-9289` deployed that commit successfully as `e459bbe9-7c20-4408-b48d-2df85777cdfe`.
+- Existing production Worker `dashcup-9289` is now version `ce9c1dbe-da72-46dc-be5f-a834a13bd585`; no second Worker was created. Production secret `CPALEAD_ATTRIBUTION_KEY` is configured, value not recorded here.
+- The existing `dashcup.com` zone redirect ruleset `634c8942a94a4d50abf03a317f8c4a2a` retains the apex-to-www rule and now redirects `admin.dashcup.com/` to `/admin/` (rule ref `dashcup_admin_root_to_portal`).
+- Live production checks: `www.dashcup.com/` 200; apex 302 to www; `game.dashcup.com/` 200 with static JS 200 (both `CF-Cache-Status: HIT`); `/api/health` 200 with database healthy; admin root 302 to `/admin/`, admin page 200.
+- Production bootstrap/game mutations, real CPAlead callback, and browser E2E were not run after rollout. Staging bootstrap, CSRF, CORS, start/end, and signed-link checks passed before promotion.

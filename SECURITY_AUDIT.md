@@ -224,3 +224,9 @@ Updated: 2026-10-02
 - The optional signing key is a Worker secret (`CPALEAD_ATTRIBUTION_KEY`), not frontend code/config. It is configured only in staging. If absent, bootstrap keeps the existing click endpoint flow; no unverified fallback is treated as a completed conversion.
 - Unit coverage checks valid decode, user-ID concealment, wrong key, tampering, expiry, malformed token, and country/device/campaign mismatch. Duplicate provider conversion handling remains on the existing idempotent callback path.
 - Production is not promoted; production secret and existing-zone admin redirect are still prerequisites. No real CPAlead callback was run in this pass.
+
+## Production status — 2026-10-05
+
+The production Worker now issues signed direct CPAlead attribution URLs from the existing authenticated bootstrap response, and the production signing key is in Worker secret storage. The callback still checks the configured CPAlead password, signed subid claims, campaign/country/device allowlist, expiry, and unique lead id before progression. Production static game root/assets bypass Worker code. Live API health reported the database healthy. No production callback was synthesized and no production bootstrap/game mutation was sent for smoke testing.
+
+The service does not claim perfect score reproduction. No 100-run aggregation was enabled: doing so with only client-supplied aggregate count, score, duration, and hashes would reduce evidence and could award progress for unverified runs. Existing per-run start/end and server anti-cheat remain.

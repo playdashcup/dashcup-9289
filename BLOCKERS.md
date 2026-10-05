@@ -257,3 +257,9 @@ ot_started; mail.dashcup.com is not listed. No verified sender domain was confir
 - Before production promotion: configure `CPALEAD_ATTRIBUTION_KEY` as a production Worker secret, and add the `/` to `/admin/` redirect for `admin.dashcup.com` to the existing zone redirect ruleset. Then promote through the existing Pages/Worker resources. No production action was taken in this pass.
 - An actual CPAlead conversion callback and browser E2E have not been exercised; staging tests cover token cryptography, expiry/tampering and campaign/country/device binding, not provider acceptance.
 - Source edits and reports remain local and uncommitted/unpushed; pushing the connected Pages branch could publish the frontend, so production remains unchanged pending review of the measured request comparison.
+
+## Promotion complete — 2026-10-05
+
+Safe Worker and Pages changes are live. Worker version `ce9c1dbe-da72-46dc-be5f-a834a13bd585`; Pages deployment `e459bbe9-7c20-4408-b48d-2df85777cdfe`; production secret `CPALEAD_ATTRIBUTION_KEY` configured without publishing its value. Live production routing/health and static game delivery passed. No schema migration was needed.
+
+The requested approximate one gameplay request per 100 runs is not met and remains intentionally deferred because one compact browser aggregate cannot preserve independent server run validation and deduplication. Per-run 2 Worker requests / 2 Neon statements remain. No production CPAlead callback or browser E2E was executed.

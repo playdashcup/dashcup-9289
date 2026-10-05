@@ -228,3 +228,18 @@ Request-count comparison for the optimized paths (architecture-derived counts, n
 The site itself is served by Pages; the table counts Worker traffic only. Request counts are per action and do not predict ad-provider traffic or include browser cache behavior. No DAU load test was run.
 
 Staging-only implementation: static-first Worker asset routing for the root/game shell, plus an AES-GCM encrypted and HMAC-authenticated expiring CPAlead attribution token embedded into the already-existing bootstrap response. No extra bootstrap request, Neon query/write, migration, or service was added. `CPALEAD_ATTRIBUTION_KEY` is configured in the staging Worker; production is not configured or promoted yet. The old server-recorded click flow remains available when that optional secret is absent.
+
+## Production resource results — 2026-10-05
+
+| Action | Production Worker requests | DASHCUP Neon statements | Notes |
+| --- | ---: | ---: | --- |
+| Open website/session | 1 bootstrap when the app needs authenticated state | Existing bootstrap transaction/query path | No duplicate bootstrap was added |
+| Load game shell/assets | 0 | 0 | Static asset-first delivery; production root and JS checks returned cache HIT |
+| One validated run | 2 (start + bounded end) | 2 existing statements | No change to validation lifecycle |
+| 100 validated runs | 200 | 200 | Aggregate batching was not shipped because aggregate client claims cannot validate every run/score or safely preserve replay protection |
+| Direct sponsor click | 0 | 0 | Signed opaque subid from the existing bootstrap response; no click insert |
+| Sponsor conversion callback | 1 | 1 existing idempotent conversion transaction | CPAlead S2S remains authoritative |
+| Explicit quest claim | 1 | 1 existing atomic claim statement | Server-authoritative |
+| Active gameplay frames/inputs | 0 | 0 | No polling or per-event calls |
+
+These are implementation request/query counts, not DAU capacity measurements. Provider-ad requests are separate and depend on client placements/inventory. No load test was run.
