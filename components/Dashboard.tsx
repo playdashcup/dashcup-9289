@@ -115,7 +115,15 @@ export function Dashboard() {
           <div>
             <p className="mb-2 inline-flex rounded-full border border-pink-200/20 bg-pink-300/10 px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[.2em] text-pink-200 sm:text-xs">DASHCUP / MEMBER HUB</p>
             <h1 className="max-w-[19rem] text-3xl font-black leading-[1.05] tracking-tight text-white [text-shadow:0_3px_0_#34386a] sm:max-w-none sm:text-5xl">Play sharp.<br className="sm:hidden" /> Stack trophies.</h1>
-            <p className="mt-3 max-w-xl text-sm font-medium text-indigo-100/75">Take a quick arcade run, hit your daily quests, and climb the ranks.</p>
+            <div className="mt-3 flex max-w-xl flex-wrap items-center gap-x-2 gap-y-2">
+              <p className="text-sm font-medium text-indigo-100/75">Play games, win trophies, get rewards</p>
+              <span role="img" aria-label="Robux, V-Bucks, COD Points, and PUBG UC rewards" className="inline-flex items-center gap-1.5">
+                <span title="Robux" className="grid size-6 place-items-center rounded-full border border-cyan-200/70 bg-cyan-300/15 font-mono text-[10px] font-black text-cyan-200">R$</span>
+                <span title="V-Bucks" className="grid size-6 place-items-center rounded-full border border-sky-200/70 bg-sky-300/15 font-mono text-xs font-black text-sky-200">V</span>
+                <span title="COD Points" className="grid size-6 place-items-center rounded-full border border-amber-200/70 bg-amber-300/15 font-mono text-[9px] font-black text-amber-200">CP</span>
+                <span title="PUBG UC" className="grid size-6 place-items-center rounded-full border border-lime-200/70 bg-lime-300/15 font-mono text-[9px] font-black text-lime-200">UC</span>
+              </span>
+            </div>
           </div>
           <div className="hidden items-center gap-2 rounded-2xl border-2 border-[#4c4678] bg-gradient-to-br from-[#282d5b] to-[#1d2248] px-4 py-3 shadow-[0_5px_0_#111631] md:flex">
             <Zap className="size-4 text-[#b9ff70]" aria-hidden="true" />
