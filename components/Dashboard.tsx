@@ -117,11 +117,12 @@ export function Dashboard() {
             <h1 className="max-w-[19rem] text-3xl font-black leading-[1.05] tracking-tight text-white [text-shadow:0_3px_0_#34386a] sm:max-w-none sm:text-5xl">Play sharp.<br className="sm:hidden" /> Stack trophies.</h1>
             <div className="mt-3 flex max-w-xl flex-wrap items-center gap-x-2 gap-y-2">
               <p className="text-sm font-medium text-indigo-100/75">Play games, win trophies, get rewards</p>
-              <span role="img" aria-label="Robux, V-Bucks, COD Points, and PUBG UC rewards" className="inline-flex items-center gap-1.5">
-                <span title="Robux" className="grid size-6 place-items-center rounded-full border border-cyan-200/70 bg-cyan-300/15 font-mono text-[10px] font-black text-cyan-200">R$</span>
-                <span title="V-Bucks" className="grid size-6 place-items-center rounded-full border border-sky-200/70 bg-sky-300/15 font-mono text-xs font-black text-sky-200">V</span>
-                <span title="COD Points" className="grid size-6 place-items-center rounded-full border border-amber-200/70 bg-amber-300/15 font-mono text-[9px] font-black text-amber-200">CP</span>
-                <span title="PUBG UC" className="grid size-6 place-items-center rounded-full border border-lime-200/70 bg-lime-300/15 font-mono text-[9px] font-black text-lime-200">UC</span>
+              <span role="group" aria-label="Available reward types" className="inline-flex flex-wrap items-center gap-1.5">
+                <span title="Robux" className="inline-flex h-6 items-center gap-1 rounded-full border border-cyan-200/70 bg-cyan-300/15 px-1.5 font-mono text-[9px] font-black text-cyan-200 sm:text-[10px]"><span aria-hidden="true">R$</span>ROBUX</span>
+                <span title="V-Bucks" className="inline-flex h-6 items-center gap-1 rounded-full border border-sky-200/70 bg-sky-300/15 px-1.5 font-mono text-[9px] font-black text-sky-200 sm:text-[10px]"><span aria-hidden="true">V</span>V-BUCKS</span>
+                <span title="PUBG UC" className="inline-flex h-6 items-center gap-1 rounded-full border border-lime-200/70 bg-lime-300/15 px-1.5 font-mono text-[9px] font-black text-lime-200 sm:text-[10px]"><span aria-hidden="true">UC</span>UC</span>
+                <span title="Diamonds" className="inline-flex h-6 items-center gap-1 rounded-full border border-pink-200/70 bg-pink-300/15 px-1.5 font-mono text-[9px] font-black text-pink-200 sm:text-[10px]"><span aria-hidden="true">💎</span>DIAMONDS</span>
+                <span title="COD Points" className="inline-flex h-6 items-center gap-1 rounded-full border border-amber-200/70 bg-amber-300/15 px-1.5 font-mono text-[9px] font-black text-amber-200 sm:text-[10px]"><span aria-hidden="true">CP</span>COD POINTS</span>
               </span>
             </div>
           </div>
