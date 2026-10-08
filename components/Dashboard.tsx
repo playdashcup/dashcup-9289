@@ -46,9 +46,18 @@ export function Dashboard() {
       if (verificationToken && /^[a-f0-9]{64}$/i.test(verificationToken)) setEmailVerificationToken(verificationToken)
       setMe(bootstrap.me)
       setQuests(bootstrap.quests)
-      setLeaderboard(bootstrap.leaderboard)
+      const ranking = bootstrap.leaderboard
+      if (Array.isArray(ranking?.active) && Array.isArray(ranking?.closed)) setLeaderboard(ranking)
+      else {
+        try { setLeaderboard(await api.getLeaderboard()) }
+        catch { setLeaderboard(null) }
+      }
       setEligibility(bootstrap.eligibility)
-      setReferral(bootstrap.referral)
+      const referralCodeFromSession = bootstrap.me.referralCode ?? bootstrap.referral?.referralCode
+      const referralUrl = bootstrap.referral?.referralUrl || (referralCodeFromSession
+        ? new URL('/?ref=' + encodeURIComponent(referralCodeFromSession), window.location.origin).toString()
+        : '')
+      setReferral(referralUrl ? { referralUrl, ...(referralCodeFromSession ? { referralCode: referralCodeFromSession } : {}) } : null)
       setRewardStock(bootstrap.rewardStock)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to connect to DASHCUP')
